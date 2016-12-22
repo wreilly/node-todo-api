@@ -18,14 +18,33 @@ const request = require('supertest');
 const { app } = require('./../server');
 const { Todo } = require('./../models/todo');
 
-// Our test is to post one, and then expect one.
-// So, we need to empty our test db each run
+const todos = [
+    {
+        text: 'Test todo 01'
+    },
+    {
+        text: 'Test todo 02'
+    },
+    {
+        text: 'Test todo 03'
+    },
+    {
+        text: 'Test todo 04'
+    },
+]
+
+// For testing, control what is in the database.
+// HAD BEEN: Just empty it
+// NOW NEEDED: Empty it, then fill with our known 4.
 beforeEach((done) => {
-    console.log("Lisa? 5 before");
-    Todo.remove({}).then(() => { // Deletes ALL items
-        done(); // fire off done here
+    Todo.remove({}).then(
+        () => { // Deletes ALL items
+    return Todo.insertMany(todos);
+}).then(
+    () => done()
+); // fire off done here
 });
-});
+
 
 
 
@@ -93,9 +112,12 @@ request(app)
     }
         console.log("Lisa? 2");
     // DATABASE STUFF:
-        Todo.find().then((todos) => { // fetch 'em all!
+    // ES5 way = Yep
+    Todo.find({text: text}).then((todos) => { // fetch 'em all!
+        // ES6 way = Also Yep
+        // Todo.find({text}).then((todos) => { // fetch 'em all!
         console.log("Lisa?");
-        expect(todos.length).toBe(1);
+       expect(todos.length).toBe(1);
         expect(todos[0].text).toBe(text);
         done();
     }).catch((err) => done(err)); // ... (video quit here!) ~~10:00 ? (of 19:49)
@@ -120,7 +142,7 @@ request(app)
 // find() and find({}) seem to do same thing: return ALL docs
     Todo.find().then((todos) => {
     // Todo.find({}).then((todos) => {
-    expect(todos.length).toBe(0); // NONE! hah!
+    expect(todos.length).toBe(4); // (0) // Now it's 4. NONE! hah!
 done(); // AARRGGHH. I was missing this. sad.
 }).catch((err) => {
         done(err)
@@ -131,3 +153,16 @@ done(); // AARRGGHH. I was missing this. sad.
 }); // /describe()
 /* *******
 * */
+
+
+describe('GET /todos', () => {
+    it('should get all todos', (done) => {
+        request(app)
+            .get('/todos')
+            .expect(200)
+            .expect((res) => {
+            expect(res.body.todos.length).toBe(4);
+        })
+    .end(done);
+});
+});

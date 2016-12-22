@@ -41,6 +41,28 @@ app.post('/todos', (req, res) => {
 
 // GET /todos/   /todos/1234
 
+app.get('/todos', (req, res) => {
+    Todo.find().then((todos) => {
+    // res.send(todos) // ARRAY
+    // res.send({todos: todos}) // Put the ARRAY onto an Object = More Flexible Future
+res.send({todos}) // ES6 way to Put the ARRAY onto an Object = More Flexible Future
+}, (err) => {
+    res.status(400).send(err);
+});
+});
+/* No todos, right now:
+
+ $ node server/server.js
+ Started express node server on port 3000
+
+POSTMAN
+GET  localhost:3000/todos
+ {
+ "todos": []
+ }
+ */
+
+
 app.listen(3000, () => {
     console.log('Started express node server on port 3000');
 })

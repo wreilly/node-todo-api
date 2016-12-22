@@ -44,3 +44,9 @@ app.post('/todos', (req, res) => {
 app.listen(3000, () => {
     console.log('Started express node server on port 3000');
 })
+
+// ES5 Set the 'app' variable herein (on right side)
+// on to the 'app' key on the module.exports object (on left side)
+// module.exports = { app: app };
+// ES6 way shortcut:
+module.exports = { app };

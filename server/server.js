@@ -21,6 +21,7 @@ mongoose.connect('mongodb://localhost:27017/TodoApp');
 
 
 var app = express();
+const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
@@ -97,8 +98,9 @@ return console.log("LOG: That ID WAS found");
 }); // /THEN
 }); // /GET
 
-app.listen(3000, () => {
-    console.log('Started express node server on port 3000');
+// app.listen(3000, () => {
+    app.listen(port, () => {
+    console.log(`Started express node server on port ${port} `);
 })
 
 // ES5 Set the 'app' variable herein (on right side)

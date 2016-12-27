@@ -7,6 +7,8 @@ var bodyParser = require('body-parser');
 
 var { mongoose } = require('./db/mongoose');
 
+var { ObjectID } = require('mongodb');
+
 var { Todo } = require('./models/todo');
 var { User } = require('./models/user');
 
@@ -62,6 +64,38 @@ GET  localhost:3000/todos
  }
  */
 
+// CHALLENGE //////////////////
+
+// GET /todos/12345
+app.get('/todos/:id', (req, res) => {
+    // res.send(req.params);
+    var id = req.params.id;
+    if (!ObjectID.isValid(id)) { // If NOT Valid... (not even an ObjectId)
+        console.log('LOG: not even an ObjectId! so-called id: ', id);
+        // return res.status(404).send(); // Instructor  Empty Body
+        return res.sendStatus(404); // sendStatus preferred ... Though note that using this 'sendStatus()' you cannot then also "send()" again. "Error: Can't set headers after they are sent." okay.
+        // 'Not found'
+    }
+
+        // findById 1) err 400 send empty body 2) if todo send todo if !todo
+Todo.findById(id).then((todoDoc) => {
+        if(!todoDoc) {
+    res.status(404).send("SEND: That ID not found");
+    return console.log("LOG: That ID not found");
+}
+
+// res.sendStatus(200).send({body});
+// res.status(200).send({wotgotwrit: todoDoc.text});
+// res.status(200).send(todoDoc); // gets you the object itself
+// res.status(200).send({todoDoc: todoDoc}); // gets you (better) the object, inside another object - more flexible. ES5 style
+res.status(200).send({todoDoc}); // Same.  ES6 style
+return console.log("LOG: That ID WAS found");
+    }, (err) => {
+    // res.sendStatus(400).send({body: body});
+    // res.status(400).send({wotgotwritnuttin: todoDoc.text});
+    res.status(400).send(); // empty body. Do NOT send the err object message to the client. may contain proprietary information.
+}); // /THEN
+}); // /GET
 
 app.listen(3000, () => {
     console.log('Started express node server on port 3000');

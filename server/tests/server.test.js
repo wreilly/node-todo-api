@@ -14,21 +14,30 @@ You don't "require()" in mocha (nor nodemon)
 const expect = require('expect');
 // !! N.B. We name the supertest stuff "request". Cheers.
 const request = require('supertest');
+const { ObjectID } = require('mongodb');
 
 const { app } = require('./../server');
 const { Todo } = require('./../models/todo');
 
+/*
+Because our testing includes ObjectIds - we need to explicitly create them here in our sort of dummied up test data (rather than let them be created dynamically by MongoDB etc. ...)
+Hmm.
+ */
 const todos = [
     {
+        _id: new ObjectID(),
         text: 'Test todo 01'
     },
     {
+        _id: new ObjectID(),
         text: 'Test todo 02'
     },
     {
+        _id: new ObjectID(),
         text: 'Test todo 03'
     },
     {
+        _id: new ObjectID(),
         text: 'Test todo 04'
     },
 ]
@@ -166,3 +175,50 @@ describe('GET /todos', () => {
     .end(done);
 });
 });
+
+describe('GET /todos/:id', () => {
+
+    it('should return todo doc', (done) => {
+        // supertest, go!
+        request(app)
+            .get(`/todos/${todos[0]._id.toHexString()}`)
+            .expect(200)
+            .expect((res) => {
+           expect(res.body.todoDoc.text).toBe(todos[0].text)
+        })
+.end(done); // << Correct
+
+//        expect(res.body.todoDoc.text).toBe('foobar'); //
+// done(); // << No! My mistake of just RUNNING 'done()' - Tells me my test passed!! Hah. Even testing 'foobar'. Hmmph.
+
+    }); // /it
+
+it('should return 404 if todo not found', (done) => {
+   // toHexString new ObjectId()  won't be in the collection
+    // get a 404 back
+    var justMadeId = new ObjectID(); // won't be found
+    request(app)
+    .get(`/todos/${justMadeId.toHexString()}`)
+        .expect(404) // Test is: do I get a 404 back?
+        .end(done);
+});
+
+
+it('should return 404 for NON-ObjectId', (done) => {
+    // /todos/123  << Not an ObjectId
+    // get a 404 back
+
+/*
+    console.log("what is done? ", done);
+http://stackoverflow.com/questions/37646949/what-is-the-point-of-the-done-callback
+*/
+
+
+    var notEvenAnObjectId = '123';
+    request(app)
+        .get(`/todos/${notEvenAnObjectId}`)
+        .expect(404) // Test is: do I get a 404 back?
+        .end(done);
+});
+
+}); // /describe :id

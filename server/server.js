@@ -65,7 +65,7 @@ GET  localhost:3000/todos
  }
  */
 
-// CHALLENGE //////////////////
+
 
 // GET /todos/12345
 app.get('/todos/:id', (req, res) => {
@@ -97,6 +97,60 @@ return console.log("LOG: That ID WAS found");
     res.status(400).send(); // empty body. Do NOT send the err object message to the client. may contain proprietary information.
 }); // /THEN
 }); // /GET
+
+
+
+
+
+// DELETE /todos/:id ////////////////////////
+
+app.delete('/todos/:id', (req, res) => {
+    var idThisTime = req.params.id;
+// get id
+if (!ObjectID.isValid(idThisTime)) {
+    // Internal console log = more info:
+    console.log("That's it. You didn't pass an ObjectId, so fuggeddaboutid: ", idThisTime);
+    // External response to API called = less info:
+    return res.sendStatus(404); // solly!
+}
+// Database time!
+Todo.findByIdAndRemove(idThisTime).then((todo) => {
+    if(
+!todo
+)
+{ // todo is null
+    // Internal console log = more info:
+    console.log("Well, it was ObjectId, but no doc by that name: ", idThisTime);
+    // External response to API called = less info:
+    return res.status(404).send({}); // solly!
+}
+// Got this far, guess you got yosef a doc!:
+console.log("Yeppers: and here's the doc you just done snabbered: ", todo);
+res.status(200).send({todo: todo}); // ES5 old school way
+},
+(err) =>
+{
+    // Internal console log = more info:
+    console.log("Something god awful happened with the database. Nice try though: ", idThisTime);
+    // External response to API called = less info:
+    return res.status(400).send({}); // solly!
+}); // /then Promise-handling
+}); // /app.delete()
+// ObjectId("5862da1a73bfc0444c80a8b4")
+
+    // validate id Not valid? return 404
+
+    // remove todo by id
+
+    // success hitting the database ...
+    // if no doc found you get null. send 404
+    // send doc back w. 200
+
+    // error 400 send ({})
+
+
+
+
 
 // app.listen(3000, () => {
     app.listen(port, () => {

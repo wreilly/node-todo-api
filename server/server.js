@@ -103,7 +103,26 @@ return console.log("LOG: That ID WAS found");
 
 
 // DELETE /todos/:id ////////////////////////
+/*
+ app.delete('/todos/:id', (req, res) => {
 
+ PSEUDO-BOODO:
+
+ // GET THE ID (OFF PARAMS)
+
+ // VALIDATE THE ID --> NOT VALID? RETURN 404
+
+ // REMOVE THE TODO, BY ID
+
+ // SUCCESS HITTING DATABASE PATH:
+ // IF NO DOC, SEND 404
+ // IF DOC, SEND DOC BACK WITH 200
+
+ // ERROR HITTING DATABASE PATH:
+ // 400 WITH EMPTY BODY
+
+ }); // /app.delete
+ */
 app.delete('/todos/:id', (req, res) => {
     var idThisTime = req.params.id;
 // get id
@@ -111,7 +130,8 @@ if (!ObjectID.isValid(idThisTime)) {
     // Internal console log = more info:
     console.log("That's it. You didn't pass an ObjectId, so fuggeddaboutid: ", idThisTime);
     // External response to API called = less info:
-    return res.sendStatus(404); // solly!
+    // return res.sendStatus(404); // solly!
+    return res.status(404).send(); // or this way...
 }
 // Database time!
 Todo.findByIdAndRemove(idThisTime).then((todo) => {
@@ -122,33 +142,21 @@ Todo.findByIdAndRemove(idThisTime).then((todo) => {
     // Internal console log = more info:
     console.log("Well, it was ObjectId, but no doc by that name: ", idThisTime);
     // External response to API called = less info:
-    return res.status(404).send({}); // solly!
+    return res.status(404).send(); // solly! (not .send({}) btw
 }
 // Got this far, guess you got yosef a doc!:
 console.log("Yeppers: and here's the doc you just done snabbered: ", todo);
-res.status(200).send({todo: todo}); // ES5 old school way
+res.status(200).send({todo: todo}); // ES5 old school way. Or just .send(todo); Better as this object thing though. And ES6? : .send({todo}); But you already knew that. ;)
 },
 (err) =>
 {
     // Internal console log = more info:
     console.log("Something god awful happened with the database. Nice try though: ", idThisTime);
     // External response to API called = less info:
-    return res.status(400).send({}); // solly!
+    return res.status(400).send(); // solly!
 }); // /then Promise-handling
 }); // /app.delete()
 // ObjectId("5862da1a73bfc0444c80a8b4")
-
-    // validate id Not valid? return 404
-
-    // remove todo by id
-
-    // success hitting the database ...
-    // if no doc found you get null. send 404
-    // send doc back w. 200
-
-    // error 400 send ({})
-
-
 
 
 

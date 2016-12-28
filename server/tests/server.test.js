@@ -222,3 +222,92 @@ http://stackoverflow.com/questions/37646949/what-is-the-point-of-the-done-callba
 });
 
 }); // /describe :id
+
+
+
+
+// /////////////////////////////////
+
+describe('DELETE /todos/:id', () => {
+
+    /* We'll delete this one (from array todos above):
+     {
+     _id: new ObjectID(),
+     text: 'Test todo 02'
+     },
+     */
+
+    it('should remove a todo', (done) => {
+
+    // Hmm, (above) we have an actual ObjectId (not just a String). So:
+        // http://mongodb.github.io/node-mongodb-native/2.2/api/ObjectID.html#toHexString
+    var hexStringId = todos[1]._id.toHexString(); // 24 chars long String
+
+    // Recall, 'request' is our SUPERTEST guy:
+    request(app)
+        .delete(`/todos/${hexStringId}`)
+        // NO NO NO:        .then((todo), () => {
+        .expect(200)
+        .expect((res) => {
+        expect(res.body.todo._id
+)
+.toBe(hexStringId);
+})
+  .end((err, res) => {
+            if(err) {
+                console.log('Hmm. API error', err);
+                return done(err);
+            }
+            // challenge:
+        // // Now, QUERY the DATABASE to ensure doc was deleted. Do so using findById; test: .toNotExist()
+        // .catch(e) ...
+
+        Todo.findById(hexStringId).then((todo) => {
+            // success getting to db at least
+        // Our test is that, at this point, the doc does not exist
+        expect(todo).toNotExist();
+        done();
+
+            }, (err) => {
+              // error
+        console.log('Hmmm # 2. Mongoose driver to database Error: ', err);
+        return done();
+    }) // /.then
+}); // /.end
+
+/* NO NO NO:
+    }, (err) => {
+        expect(404);
+        done();
+    }); // /then
+*/
+
+}); // /it(remove one)
+
+
+it('should return 404 if todo not found', (done) => {
+    // Hmm, just make one up? (It won't be in the db)
+    var myHexId = new ObjectID().toHexString();
+
+    request(app)
+        .delete(`/todos/${myHexId}`)
+        .expect(404)
+        .end(done);
+
+}); // /it(404 not found)
+
+
+
+it('should return 404 if ObjectId is invalid', (done) => {
+
+    var myBadIdString = 'notanobjectid123';
+
+    request(app)
+        .delete(`/todos/${myBadIdString}`)
+        .expect(404)
+        .end(done);
+
+}); // /it(404 invalid)
+
+
+}); // /describe(DELETE)

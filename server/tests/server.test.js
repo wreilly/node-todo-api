@@ -30,7 +30,9 @@ const todos = [
     },
     {
         _id: new ObjectID(),
-        text: 'Test todo 02'
+        text: 'Test todo 02',
+        completed: true,
+        completedAt: 1000
     },
     {
         _id: new ObjectID(),
@@ -69,19 +71,15 @@ describe('POST /todos', () => {
         .expect(200)
         .expect((res) => {
         expect(res.body.text
-).
-    toBe(text);
+).toBe(text);
 })
-.
-    end((err, res) => {
+.end((err, res) => {
         if (err) {
             return done(err);
         }
 
         Todo.find().then((todos) => {
-        expect(todos.length
-).
-    toBe(1);
+        expect(todos.length).toBe(1); // <<<< Because for this test our db was empty, we added 1, find() returns all which is 1.
     expect(todos[0].text).toBe(text);
     done();
 }).
@@ -311,3 +309,133 @@ it('should return 404 if ObjectId is invalid', (done) => {
 
 
 }); // /describe(DELETE)
+
+
+
+// //////// PATCH ////////////
+
+describe('PATCH /todos/:id', () => {
+   it('should update the todo', (done) => {
+       // grab id of first item
+    var idFor01 = todos[0]._id; // e.g. whatever the new ObjectID() yielded
+    console.log('idFor01 is ', idFor01); // 586550fc7977115839d89e6e
+
+    var textWrote = "Something I wrote in a test. 01.";
+
+
+    // update text, set completed true
+    request(app)
+        .patch(`/todos/${idFor01}`)
+        .send({
+            text: textWrote, // was something else; we're updating!
+            completed: true // was false
+        })
+        .expect(200) // same as next lines:
+        .expect((resfoo) => { // Call the 'res' (response) whatever you like ...
+        expect(resfoo.status).toBe(200);
+    })
+        .expect((res) => {
+        expect(res.body.todo.text).toBe(textWrote);
+        expect(res.body.todo.completed).toBe(true);
+    expect(res.body.todo.completedAt).toExist();
+    expect(res.body.todo.completedAt).toBeA('number'); // https://www.npmjs.com/package/expect
+
+    })
+    .end(done);
+
+    // http://mongoosejs.com/docs/api.html#model_Model.findByIdAndUpdate
+/* NO NO NO. YEESH.
+    Todo.findByIdAndUpdate(idFor01,
+        {
+            $set: {
+                text: "Something I wrote in a test. 01.",
+                completed: true
+            },
+
+        },
+        {
+            new: true
+        },
+        (returnedDoc) => {
+        console.log('Woot. returnedDoc: ', returnedDoc);
+    }
+
+    ); // /findByIdAndUpdate()
+*/
+
+    // get 200
+
+
+    // expect((res) => ... that text is changed; completed is true; completedAt is a number .toBe()
+
+}); // /it should update the todo...
+
+
+// ====================================
+   it('should clear completedAt when todo is not complete', (done) => {
+    // grab encore id of second item
+       // update text to something; set completed false
+       // 200
+       // expect .... text changed; completed false; completedAt is null .toNotExist()
+
+       // grab encore id of second item
+       var idFor02 = todos[1]._id;
+var newText = "Nobody knows you when you're, down & out...";
+
+request(app)
+    .patch(`/todos/${idFor02}`)
+    .send({
+        text: newText,
+        completed: false // was true, and had a completedAt.
+    })
+    .expect((response) => {
+    expect(response.status).toEqual(200);
+expect(response.statusCode).toEqual(200); // b'lieve this works, too. Yep.
+})
+    .expect((response) => {
+    // console.log("WR__ WTH response: ", response); // big ol' response object
+    expect(response.body.todo.text).toEqual(newText);
+    expect(response.body.todo.completed).toBe(false);
+expect(response.body.todo.completedAt).toNotExist(); // be null, that is.
+})
+.end(done);
+
+       // update text to something; set completed false
+       // 200
+       // expect .... text changed; completed false; completedAt is null .toNotExist()
+
+   }); // /it(should clear completedAt...)
+
+
+/*
+OK: Three more:
+1) PATCH sending no data ? Hmm. guess that yields an empty item ??
+2) PATCH sending ObjectId that is not in database
+3) PATCH sending a NON-ObjectId
+Well, let's do # 2 and # 3 anyway.
+# 1 is sort of existential.
+A # 4 might be: Send a non-Boolean to our 'completed' field, etc., but, I'm going to skip doing that much bullet-proofing ...
+ */
+
+it('should return 404 for ObjectId not in database', (done) => {
+    var giffiedUpObjectId = new ObjectID(); // won't be in database
+
+request(app)
+    .patch(`/todos/${giffiedUpObjectId}`)
+    .expect(404)
+    .end(done);
+
+}); // /it 404 ObjectId
+
+it('should return 404 for NON-ObjectId', (done) => {
+    var myNonObjectId = '45';
+
+    request(app)
+        .patch(`/todos/${myNonObjectId}`)
+        .expect(404)
+        .end(done)
+
+}); // /it 404 NON-ObjectId
+
+
+}); // /describe(PATCH)

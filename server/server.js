@@ -2,15 +2,17 @@
  * Created by william.reilly on 12/21/16.
  */
 
-var express = require('express');
-var bodyParser = require('body-parser');
+const _ = require('lodash');
 
-var { mongoose } = require('./db/mongoose');
+const express = require('express');
+const bodyParser = require('body-parser');
 
-var { ObjectID } = require('mongodb');
+const { mongoose } = require('./db/mongoose');
 
-var { Todo } = require('./models/todo');
-var { User } = require('./models/user');
+const { ObjectID } = require('mongodb');
+
+const { Todo } = require('./models/todo');
+const { User } = require('./models/user');
 
 /* Replaced by above, refactoring.
 var mongoose = require('mongoose');
@@ -42,7 +44,7 @@ app.post('/todos', (req, res) => {
 });
 });
 
-// GET /todos/   /todos/1234
+// GET /todos/
 
 app.get('/todos', (req, res) => {
     Todo.find().then((todos) => {
@@ -157,6 +159,68 @@ res.status(200).send({todo: todo}); // ES5 old school way. Or just .send(todo); 
 }); // /then Promise-handling
 }); // /app.delete()
 // ObjectId("5862da1a73bfc0444c80a8b4")
+
+
+
+// /////////////  P A  T  C  H   ///////
+app.patch('/todos/:id', (req, res) => {
+   var id = req.params.id;
+   var body = _.pick(req.body, ['text', 'completed']);
+
+   if(!ObjectID.isValid(id)) {
+       // Not even an ObjectId fer chrissakes
+       console.log('raah! Not even an ObjectId fer chrissakes');
+       return res.status(404).send();
+   }
+
+if (_.isBoolean(body.completed) && body.completed) {
+       body.completedAt = new Date().getTime(); // JavaScript timestamp = # secs since 1970 Unix epoch. A number.
+} else {
+       // Not a Boolean. (Or even if it is a Boolean, it is Not True (a.k.a. False))
+    body.completed = false;
+    body.completedAt = null; // removes value from database
+}
+
+// https://docs.mongodb.com/manual/reference/operator/update/inc/
+
+Todo.findByIdAndUpdate(id,
+    /* { $set: body },
+    *
+    * In other words, 'body' is already:
+    * {
+     text: body.text,   <<< whatever the text is
+     completed: body.completed, <<< etc.
+     completedAt: body.completedAt
+     }
+    *
+    *
+    * */
+
+/* Interesting. I wrote like so: (Also works) */
+{ $set:
+    {
+        text: body.text,
+        completed: body.completed,
+        completedAt: body.completedAt
+    }
+ },
+
+ {
+     // MongoDB: false here gets you the updated doc, not the original doc
+       // returnOriginal: false
+     // Mongoose: true here gets you the updated ("new") doc, not the original doc
+     new: true
+   }).then((todo) => {
+       if(!todo) {
+           return res.status(404).send();
+}
+       console.log(todo);
+       res.status(200).send({todo: todo});
+}).catch((err) => {
+       res.status(400).send();
+});
+
+});
 
 
 

@@ -53,6 +53,8 @@ db.collection('Todos').findOneAndUpdate({
  ok: 1 }
  */
 
+// http://mongoosejs.com/docs/api.html#model_Model.findByIdAndUpdate
+
 // https://docs.mongodb.com/manual/reference/operator/update/inc/
 // ////////// CHALLENGE ///////
 db.collection('Users').findOneAndUpdate(

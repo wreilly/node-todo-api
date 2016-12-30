@@ -6,5 +6,5 @@ git/
 npm-debug.log
 .DS_Store
 public/bundle.js
-config/
+/config/
 

@@ -31,16 +31,20 @@ const port = process.env.PORT; // ENV now handled above
 
 app.use(bodyParser.json());
 
+// *************************************
+//  *****     TODOS     ****************
+// *************************************
 
 // CRUD Create Read Update Delete
+
 // POST /todos
-// RESOURCE CREATION
 app.post('/todos', (req, res) => {
-    console.log(req.body);
+    console.log("WR__ POST /todos 01 req.body", req.body);
     var todo = new Todo({
         text: req.body.text,
         completed: req.body.completed
     });
+    console.log("POST /todos 02 WR__ NEW TODO! ", todo);
     todo.save().then((doc) => {
        res.send(doc);
     }, (err) => {
@@ -225,6 +229,51 @@ Todo.findByIdAndUpdate(id,
 });
 
 });
+
+
+
+// *************************************
+//  *****     USERS     ****************
+// *************************************
+
+// POST /users
+// Create / Register NEW User. Get their Password in plain text. We'll BCrypt it to DB.
+/*
+We're to use PICK: e.g. for Todos we had:
+ var body = _.pick(req.body, ['text', 'completed']);
+ */
+/*
+POST looks like:
+{
+ email: wreilly2001@gmail.com,
+password: '123456'
+}
+ */
+app.post('/users', (req, res) => {
+    console.log("WR__ POST /users req.body: ", req.body);
+
+    // var newUser = new User({ });
+// console.log("01 WR__ newUser: ", newUser); // 01 WR__ newUser:  { _id: 5866c0922c2ab686a13d49bd, tokens: [] }
+    var newUser = new User(  _.pick(req.body, ['email', 'password']) );
+
+console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreilly2001@gmail.com', password: '1234567' }
+
+    newUser.save().then(
+        // 1) ok resolved promise happy path:
+        (newUser) => {
+        console.log("WR__ new user is: ", newUser);
+// http://expressjs.com/es/api.html#res.send
+res.send({user: newUser});
+},
+// 2) not ok rejected promise UNhappy path:
+(err) => {
+            console.log("ERR is ", err);
+    res.status(400).send(err); // ??  http://expressjs.com/en/4x/api.html#middleware-callback-function-examples
+
+});
+
+});
+
 
 
 

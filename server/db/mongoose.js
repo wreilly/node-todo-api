@@ -12,7 +12,9 @@ mongoose.Promise = global.Promise;
  MONGODB_URI: mongodb://heroku_j5vczb1f:4hst1ck0k8vp2ikt9ub4gjk451@ds145208.mlab.com:45208/heroku_j5vczb1f
  */
 // mongoose.connect('mongodb://localhost:27017/TodoApp');
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/TodoApp');
+// mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/TodoApp');
+// Now ENV is determined in server.js.s
+mongoose.connect(process.env.MONGODB_URI);
 
 
 

@@ -2,6 +2,9 @@
  * Created by william.reilly on 12/21/16.
  */
 
+// Refactored out of here (/server/server.js) to this new /server/config/config.js :
+require('./config/config');
+
 const _ = require('lodash');
 
 const express = require('express');
@@ -23,7 +26,8 @@ mongoose.connect('mongodb://localhost:27017/TodoApp');
 
 
 var app = express();
-const port = process.env.PORT || 3000;
+// const port = process.env.PORT || 3000;
+const port = process.env.PORT; // ENV now handled above
 
 app.use(bodyParser.json());
 

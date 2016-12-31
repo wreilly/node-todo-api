@@ -258,21 +258,46 @@ app.post('/users', (req, res) => {
 
 console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreilly2001@gmail.com', password: '1234567' }
 
+
+/* CUSTOM:
+ MODEL METHODS e.g. User.findByToken
+ INSTANCE METHODS e.g. user.generateAuthToken
+ */
+
+
     newUser.save().then(
         // 1) ok resolved promise happy path:
-        (newUser) => {
+        // (newUser) => {
+         () => { // perhaps surprisingly (perhaps not) we do not need to explicitly put that 'newUser' inside the () here. It 'just works'. Hmm. ...
         console.log("WR__ new user is: ", newUser);
-// http://expressjs.com/es/api.html#res.send
-res.send({user: newUser});
-},
+
+        /*
+        Hmm, *instead* of res.send, we'll do auth token biz:
+        "Since we know it returns a ___? , we return it,
+        and having done so we now introduce a .then() before the .catch/(err)
+         */
+        return newUser.generateAuthToken(); // no args
+
+        // http://expressjs.com/es/api.html#res.send
+// NO LONGER HERE: res.send({user: newUser});
+}).then( (token) => {
+    // We have USER and we have TOKEN
+    /*
+    x- custom header, not HTTP strictly speaking
+    header() name-value pairs, commma separated:
+     */
+    res.header('x-auth', token).send( { user: newUser });
+
+}),
+// HMM I didn't do .catch(e) here, but, should work I THINK. HMM.
 // 2) not ok rejected promise UNhappy path:
 (err) => {
             console.log("ERR is ", err);
     res.status(400).send(err); // ??  http://expressjs.com/en/4x/api.html#middleware-callback-function-examples
 
-});
+};
 
-});
+}); // /app.post() (req, res) => {
 
 
 

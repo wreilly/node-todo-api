@@ -4,6 +4,8 @@
 
 const mongoose = require('mongoose');
 const validator = require('validator');
+const jwt = require('jsonwebtoken');
+const _ = require('lodash');
 
 /*
 {
@@ -21,47 +23,119 @@ const validator = require('validator');
 // USER MODEL
 // e-mail - require, trim, String, min 1
 
-// 'User' will become 'users' collection (lowercased, pluralized)
-var User = mongoose.model('User', {
+/* TO GET *CUSTOM* MODEL METHODS:
+You must create your own Schema using Mongoose Schema.
+(As opposed to below where we used more straightforwardly the Mongoose *Model*, to just get a User model, to which we could not attach Custom model methods.
+To effect this, we cut & paste the entire object out of mongoose.model() and paste it here in mongoose.Schema. That's it!
+*/
+var UserSchema = new mongoose.Schema({
     email: {
         type: String,
         required: true,
         minlength: 1,
         trim: true,
         unique: true, // must be unique email!
-/* SAME as below! Not sure I understand *exactly* why short version works oh well.
+        /* SAME as below! Not sure I understand *exactly* why short version works oh well.
 
+         validate: {
+         validator: (value) => {
+         return validator.isEmail(value);
+         },
+         message: '{VALUE} is not a valid email'
+         },
+         */
         validate: {
-            validator: (value) => {
-            return validator.isEmail(value);
-},
-message: '{VALUE} is not a valid email'
-},
-*/
-validate: {
-    validator: validator.isEmail,
-    message: '{VALUE} is not a valid email'
-}
-}, // /email
+            validator: validator.isEmail,
+            message: '{VALUE} is not a valid email'
+        }
+    }, // /email
 
-password: {
+    password: {
         type: String,
-            require: true,
+        require: true,
         minlength: 6 // kinda arbitrary
-},
+    },
 
-tokens: [{
-  access: {
-      type: String,
-      require: true
-  },
-    token: {
-        type: String,
-        require: true
-    }
-}]
+    tokens: [{
+        access: {
+            type: String,
+            require: true
+        },
+        token: {
+            type: String,
+            require: true
+        }
+    }]
 
-}); // /User
+});
+
+// INSTANCE METHOD
+/*
+!!! ARROW FUNCTIONS - recall - do **NOT** bind a 'this' keyword.
+So, we go back to Old School ES5 "function () {}" method style, because the 'this' here needs to reference the Individual Document (the user).
+ */
+
+/*
+OVERRIDE default toJSON for our User Model:
+ */
+UserSchema.methods.toJSON = function () {
+    var user = this;
+    var userObject = user.toObject();
+    /*
+    .toObject taking mongoose variable user
+    converts it into a regular object
+    where only properties available on the document exist. Hmm.
+     */
+    // We leave off password, tokens
+    return _.pick(userObject, ['_id', 'email']);
+}
+
+UserSchema.methods.generateAuthToken = function () {
+    // Slam 'this' onto our var 'user' Cheers:
+    var user = this;
+    var access = 'auth';
+    var token = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
+
+    // get ARRAY
+    user.tokens.push({  // ES5 way
+        access: access,
+        token: token
+    });
+    // user.tokens.push({ access, token }); // ES6 way
+
+    /*
+    O.K., at this point we have changed/altered the user instance (put the token on it),
+    BUT we have not yet saved it.
+    That's next:
+     */
+    /*  LECTURE 90 ~09:09 is the end of all this chat:
+    save() returns a promise, so we chain on a then():
+     */
+/* See next block below for how we did this instead:
+    user.save().then( () => {
+        return token; // this is the SUCCESS callback function ...
+    }).then( (token) => { // "Over in the server.js file we'll grab the token, by tacking on another callback ...  getting the token and responding inside of that (2nd?) callback function ..."
+
+    })
+*/
+/*
+So instead of above, we 'return' the result of the success callback function
+as the input to the next then() callback (from over in server.js)
+Our promise here returns a value (token) instead of another promise ... ( ? )
+
+ In server.js we'll invoke this custom instance method user.generateAuthToken to add a token and then set it as a header.
+
+ */
+    return user.save().then( () => {
+        return token; // this is the SUCCESS callback function ...
+});
+};
+
+// 'User' will become 'users' collection (lowercased, pluralized)
+/*
+This mongoose.model() used to hold all the details of the schema that were cut out from here and pasted instead above to the mongoose.schema(). Now that schema is passed in here:
+ */
+var User = mongoose.model('User', UserSchema); // /User
 
 /*
  http://mongoosejs.com/docs/validation.html

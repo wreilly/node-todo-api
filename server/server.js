@@ -11,17 +11,18 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 const { mongoose } = require('./db/mongoose');
+/* Replaced by above, refactoring.
+ var mongoose = require('mongoose');
+ mongoose.Promise = global.Promise;
+ mongoose.connect('mongodb://localhost:27017/TodoApp');
+ */
 
 const { ObjectID } = require('mongodb');
 
 const { Todo } = require('./models/todo');
 const { User } = require('./models/user');
 
-/* Replaced by above, refactoring.
-var mongoose = require('mongoose');
-mongoose.Promise = global.Promise;
-mongoose.connect('mongodb://localhost:27017/TodoApp');
-*/
+var { authenticate } = require('./middleware/authenticate');
 
 
 
@@ -55,6 +56,7 @@ app.post('/todos', (req, res) => {
 // GET /todos/
 
 app.get('/todos', (req, res) => {
+    console.log("WR__ 97 wtf app.get /todos"); // yep.
     Todo.find().then((todos) => {
     // res.send(todos) // ARRAY
     // res.send({todos: todos}) // Put the ARRAY onto an Object = More Flexible Future
@@ -288,7 +290,12 @@ console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreill
      */
     res.header('x-auth', token).send( { user: newUser });
 
-}),
+})
+/*  AIN'T WOIKIN'   (Was able to fix (!) :o)  Below)
+My idea, of not using .catch(e) and instead passing a 2nd (error) function to the 'then()' promise, is, I now believe, flawed.
+By the time we get here, we are no longer really still back inside that 'then()' promise thing above. Something else has happened in between. We went over to do that generateAuthToken() bit and it 'returned'  a value not a promise (huh?) or something like that, and so now really the better overall ".catch(e)" is your ticket at this point in the code to catch an error. Better than relying on that "2nd passed-in function" to handle the error.
+That's what I think. That's what the Instructor code shows. Let's give it a whirl.
+
 // HMM I didn't do .catch(e) here, but, should work I THINK. HMM.
 // 2) not ok rejected promise UNhappy path:
 (err) => {
@@ -296,8 +303,122 @@ console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreill
     res.status(400).send(err); // ??  http://expressjs.com/en/4x/api.html#middleware-callback-function-examples
 
 };
+*/
+.catch((err) => { // YEP!
+    console.log("WR__ NEW USER CATCH ERR is ", err);
+res.status(400).send(err);
+});
 
-}); // /app.post() (req, res) => {
+
+
+}); // /app.post(/users) (req, res) => {
+
+
+
+
+
+
+
+
+
+// //////// LECTURE 91 PRIVATE ROUTES
+
+
+var authenticate = (req, res, next) => {
+
+    var token = req.header('x-auth');
+
+    User.findByToken(token).then((user) => {
+      if(!user) {
+        return Promise.reject("AUTHENTICATE REFACTOR: my custom err msg: good token, no user, solly");
+
+    }
+// NEW STUFF...
+    /* ~14:02
+    Instead of just sending back the user as response,
+    we will 'modify the request object, such that we can use
+    it (the modified request object) in the route down below...
+     */
+    // res.send(user); // << WAS
+    req.user = user; // << NEW
+    req.token = token; // << NEW
+
+    next(); // MUST call
+
+}).catch((error) => {
+        res.status(401).send(error);
+        // Here in catch(error), we do NOT call the next(). just saying.
+});
+};
+
+/*
+*** REFACTORED 'authenticate' out to its own function (above)
+ */
+app.get('/users/me', authenticate, (req, res) => {
+    res.send(req.user); // << With Refactoring, the req object now has the user (and the token)
+}); // /GET /users/me
+
+
+/* *******************
+*** OLD authentication code (now refactored out above to 'authenticate()'
+ */
+/*
+app.get('/users/me', (req, res) => {
+    console.log("WR__ 98 PRE token from header x-auth: ");
+
+
+    /!*
+    Where (the HELL) is my header for 'x-auth' ??? ???
+     *!/
+   var token = req.header('x-auth'); // pass in key, get value
+var wr__postmanToken = req.header('postman-token');
+var wr__userAgent = req.header('user-agent');
+
+console.log("WR__ 99MISERABLE token from header x-auth: ", token);
+
+console.log("WR__ 9THOUSAND6 req.header wr__userAgent, kids!: ", wr__userAgent); // Yes, finally. 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_5)...'
+console.log("WR__ 9THOUSAND7 req.header postman-token wr__postmanToken, kids!: ", wr__postmanToken); // undefined, from browser request. understandable.
+console.log("WR__ 9THOUSAND8 req.headers, kids!: ", req.headers);
+
+/!*
+WHOA HARD-CODED!
+ eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODY5MGQ3NmJiNjI0YmI1YmRkZGIyMzAiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDgzMjc5NzM0fQ.yKj3vrEUtiO1xqABdP6bIFxm1fv4q49aJ5djictQSOA
+ *!/
+
+// Let's stop hard coding it, shall we? Gracias.
+// token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODY5MGQ3NmJiNjI0YmI1YmRkZGIyMzAiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDgzMjc5NzM0fQ.yKj3vrEUtiO1xqABdP6bIFxm1fv4q49aJ5djictQSOA';
+
+console.log("WR__ 99 token from header x-auth: ", token);
+
+// User MODEL Custom Method
+/!* N.B. We can stitch on a then() here because the findByToken does a 'return' etc. etc. etc.
+ *!/
+User.findByToken(token).then((user) => {
+    if(!user) {
+        // return something i guess...
+    console.log("WR__ 100 No user ?? etc.");
+    /!*
+    "Token was valid but for some reason could not find a document/user that matched the parameters specified..."
+     *!/
+    // So we want to effectively send this same error msg response:
+// res.status(401).send();
+// But to do that (line above), we can more elegantly etc. do this:
+    return Promise.reject("SERVER.JS: my custom err msg: good token, no user, solly");
+//     return Promise.reject(); // << or just empty viz. msg
+    // That way (line above) we effectively (and actually) simply pass control on down to the .catch(error) below, and we have IT do the "401" send biz.
+    }
+// happy path...
+console.log("WR__ 101 Yay got this user: ", user);
+res.send(user);
+}).catch((error) => { // << error gets: "My custom error message..."
+    // We get here when the called findByToken sends its reject()
+    // N.B. Methinks: That differs from the "no user" returned if(!user) above. Not quite sure what causes that to occur... hmm.
+    // 401 = Auth Required.
+ res.status(401).send(error);
+});
+
+}); // /GET /users/me
+*/  // OLD authenticated code now refactored out. **************
 
 
 

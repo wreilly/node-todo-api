@@ -69,7 +69,8 @@ var UserSchema = new mongoose.Schema({
 
 });
 
-// INSTANCE METHOD
+// INSTANCE METHOD   - UserSchema.methods
+// MODEL METHOD      - UserSchema.statics
 /*
 !!! ARROW FUNCTIONS - recall - do **NOT** bind a 'this' keyword.
 So, we go back to Old School ES5 "function () {}" method style, because the 'this' here needs to reference the Individual Document (the user).
@@ -128,8 +129,69 @@ Our promise here returns a value (token) instead of another promise ... ( ? )
  */
     return user.save().then( () => {
         return token; // this is the SUCCESS callback function ...
-});
-};
+    // ** UND VHERE ISN DE FAILUURE CALLBACKENZIES??!
+},
+    // FAILUURE! <<<<< Hmm. Instructor code does not have this.
+    //                 I believe I am on a Wrong Track here.
+    //                 Probably benign, never-reached code. C'est la vie.
+    (error) => {
+        console.log("USER.JS generateAuthToken user.save() FAILUURE: error: ", error);
+        return {}; // no token no nothing hmm?
+    }
+    );
+}; // /generateAuthToken()
+
+
+// //////////////   MODEL METHOD ///////////
+// WE NEED ACCESS TO THE 'this' BINDING - so, ES5 function()...
+UserSchema.statics.findByToken = function (token) {
+    console.log("WR__ 88 USER.JS findByToken token: ", token);
+    var User = this; // MODEL is the 'this' here
+
+    // see also playground/hashing.js
+    var decoded; // leave undefined, here. why? jwt.verify() will throw error. we'll use try catch below to deal with that. But/So, I guess I'm inferring, you don't want to DECLARE variables inside a TRY block. Jus' guessin'
+    try {
+        decoded = jwt.verify(token, 'abc123'); // our Secret will be REMOVED from source code, kids.
+        console.log("WR__ 87 USER.JS decoded: ", decoded);
+
+        /*
+         WR__ 87 USER.JS decoded:  { _id: '58690d76bb624bb5bdddb230',
+         access: 'auth',
+         iat: 1483279734 } //  1/1/2017, 9:08:54 AM GMT-5:00
+         // http://www.epochconverter.com/
+
+         MONGODB DOCUMENT:
+         { "_id" : ObjectId("58690d76bb624bb5bdddb230"), "email" : "roger17@rabbit.com", "password" : "123456", "tokens" : [ { "access" : "auth", "token" : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODY5MGQ3NmJiNjI0YmI1YmRkZGIyMzAiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDgzMjc5NzM0fQ.yKj3vrEUtiO1xqABdP6bIFxm1fv4q49aJ5djictQSOA", "_id" : ObjectId("58690d76bb624bb5bdddb231") } ], "__v" : 1 }
+         */
+
+    } catch (e) {
+        // fails ... return a Promise that will always/only REJECT
+        // That takes us back to calling server.js, where we stitch on a .catch() ...
+        // N.B. Methinks: Our explicitly sending the 'REJECT' DIFFERS from the whole damned system just hitting an ERROR or otherwise failing to return a 'user' ... hmm
+/*
+        new Promise((resolve, reject) => {
+           reject();
+        });
+*/
+// SHORT version of above:
+        return Promise.reject('USER.JS MODEL: my custom error message... jwt.verify fell over, kid');
+        // return Promise.reject(); // we'll just send back empty
+    }
+
+    // success decoding token:
+
+    // findOne returns a promise. All well and good.
+    // So, we, here, do a 'return', babe, to send that back
+    //     on over to server.js, which invoked this "findByToken"
+    //     and, over there (server.js) we can then stitch on
+    //     a 'then()' chain thing-a-ding-a...
+    return User.findOne({
+        '_id': decoded._id,
+        'tokens.token': token,
+        'tokens.access': 'auth'
+    });
+}
+
 
 // 'User' will become 'users' collection (lowercased, pluralized)
 /*

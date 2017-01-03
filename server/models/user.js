@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const validator = require('validator');
 const jwt = require('jsonwebtoken');
 const _ = require('lodash');
+const bcrypt = require('bcryptjs');
 
 /*
 {
@@ -97,7 +98,7 @@ UserSchema.methods.generateAuthToken = function () {
     var access = 'auth';
     var token = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
 
-    // get ARRAY
+    // add this token to tokens ARRAY
     user.tokens.push({  // ES5 way
         access: access,
         token: token
@@ -105,12 +106,12 @@ UserSchema.methods.generateAuthToken = function () {
     // user.tokens.push({ access, token }); // ES6 way
 
     /*
-    O.K., at this point we have changed/altered the user instance (put the token on it),
-    BUT we have not yet saved it.
+    O.K., at this point we have changed/altered the user instance object (put the token on it),
+    BUT we have not yet saved it to the database.
     That's next:
      */
     /*  LECTURE 90 ~09:09 is the end of all this chat:
-    save() returns a promise, so we chain on a then():
+   - save() returns a promise, so we chain on a then():
      */
 /* See next block below for how we did this instead:
     user.save().then( () => {
@@ -190,7 +191,41 @@ UserSchema.statics.findByToken = function (token) {
         'tokens.token': token,
         'tokens.access': 'auth'
     });
-}
+} // /UserSchema.statics.findByToken()
+
+
+UserSchema.pre('save', function (next) {
+    var user = this; // bind this once more
+    console.log("WR__ 55 PRE SAVE user: ", user);
+    /*
+Model method isModified returns T/F re: a property
+e.g. a user edit that did not modify pw, don't re-hash that pw value...!
+     */
+    if ( user.isModified('password') ) {
+        // PW WAS modified
+        // We will want to *Hash* the plain text pw
+
+        console.log("WR__ 56 IF Modified True user.password: ", user.password);
+
+        // SALT, HASH on user.password
+        bcrypt.genSalt(4, (err, salt) => {
+            bcrypt.hash(user.password, salt, (err, hashedPassword) => {
+            user.password = hashedPassword;
+        console.log("WR__ 56A HASHED? god willing  user.password: ", user.password);
+            next();
+        });
+        });
+    } else {
+        // PW was NOT modified
+        // Don't *Re-Hash* it !!!
+        console.log("WR__ 57 IF Modified False user.password is still: ", user.password);
+        // We sort of do nothing, heh-heh, viz. hash biz.
+        // But ya still gotta send it back/next/along, mate!
+        next();
+    }
+
+    // next(); // << Must call at some point in here! (just not here) ;o)
+});
 
 
 // 'User' will become 'users' collection (lowercased, pluralized)

@@ -271,7 +271,7 @@ console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreill
         // 1) ok resolved promise happy path:
         // (newUser) => {
          () => { // perhaps surprisingly (perhaps not) we do not need to explicitly put that 'newUser' inside the () here. It 'just works'. Hmm. ...
-        console.log("WR__ new user is: ", newUser);
+        console.log("WR__ SERVER.JS 44 new user is: ", newUser);
 
         /*
         Hmm, *instead* of res.send, we'll do auth token biz:
@@ -281,7 +281,7 @@ console.log("02 WR__ newUser: ", newUser); // 02 WR__ newUser:  { email: 'wreill
         return newUser.generateAuthToken(); // no args
 
         // http://expressjs.com/es/api.html#res.send
-// NO LONGER HERE: res.send({user: newUser});
+// NO LONGER handled HERE: res.send({user: newUser});
 }).then( (token) => {
     // We have USER and we have TOKEN
     /*

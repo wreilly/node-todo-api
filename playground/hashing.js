@@ -5,6 +5,65 @@ const { SHA256 } = require('crypto-js');
 
 const jwt = require('jsonwebtoken');
 
+const bcrypt = require('bcryptjs');
+// https://www.npmjs.com/package/bcryptjs    v 2.4.0
+// ////// BCRYPT LECTURE 92
+
+
+var bcpassword = '123abc';
+/*
+NO SALT
+ pw -> hash
+ 'password1' -> mmnn
+
+ SALT
+ 'password1asdfqwerty' -> mmnn
+*/
+ // 10 ROUNDS, takes longer (e.g. 120... avoid brute force)
+ bcrypt.genSalt(12, (err, salt) => {
+ bcrypt.hash(bcpassword, salt, (err, hash) => {
+     // hash is what we store to the database
+     console.log('***** TOOK YA LONG ENUFF! *** OL\' BCRYPT BUDDY!');
+console.log(hash);
+});
+});
+
+ /*
+$2a$12$QCSOTcMneKUJ9SSSkU7Bie1NMDl6lAgnLuh3RsZuEKnZxE15yfiXS
+  */
+
+ /*
+  HOLY COW
+
+  https://www.quora.com/What-are-the-requirements-for-the-salt-value-in-bcrypt-js
+
+  From @garthk, on a 2GHz core you can roughly expect:
+  rounds=8 : ~40 hashes/sec
+  rounds=9 : ~20 hashes/sec
+  rounds=10: ~10 hashes/sec
+  rounds=11: ~5  hashes/sec
+  rounds=12: 2-3 hashes/sec
+  rounds=13: ~1 sec/hash
+  rounds=14: ~1.5 sec/hash
+  rounds=15: ~3 sec/hash
+  rounds=25: ~1 hour/hash
+  rounds=31: 2-3 days/hash
+
+  */
+
+
+var hashedPassword = '$2a$12$QCSOTcMneKUJ9SSSkU7Bie1NMDl6lAgnLuh3RsZuEKnZxE15yfiXS';
+// var hashedPassword = '$2a$12$QCSOTcMneKUJ9SSSkU7Bie1NMDl6lAgnLuh3RsZuEKnZxE15yfiXS-BROKEN';
+
+bcrypt.compare(bcpassword, hashedPassword, (err, result) => {
+    console.log("WR__ Here is the bcrypt.compare result");
+    // result is Boolean: true or false
+    console.log(result);
+});
+
+
+// ////////////////////
+
 var jwtData = {
     id: 10
 };

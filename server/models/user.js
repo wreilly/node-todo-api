@@ -97,6 +97,20 @@ UserSchema.methods.generateAuthToken = function () {
     var user = this;
     var access = 'auth';
     var token = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
+    var tokenWITHHexString = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
+    var tokenWITHOUTHexString = jwt.sign({ _id: user._id, access: access}, 'abc123').toString(); // our SECRET
+
+    console.log("WR__ 111 tokenWITHHexString: ", tokenWITHHexString);
+    console.log("WR__ 222 tokenWITHOUTHexString: ", tokenWITHOUTHexString);
+
+    /*
+    Curiouser and curiouser ...
+
+    They're THE SAME:
+     WR__ 111 tokenWITHHexString:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODZjMTBlZWZlZWRlYjBkNDYyNGZmZWEiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDgzNDc3MjMwfQ.gfS52q3zGLZ0yYurgb4yJsAefQzn2YlfHwflkfpH43o
+     WR__ 222 tokenWITHOUTHexString:  eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODZjMTBlZWZlZWRlYjBkNDYyNGZmZWEiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDgzNDc3MjMwfQ.gfS52q3zGLZ0yYurgb4yJsAefQzn2YlfHwflkfpH43o
+     */
+
 
     // add this token to tokens ARRAY
     user.tokens.push({  // ES5 way
@@ -146,14 +160,14 @@ Our promise here returns a value (token) instead of another promise ... ( ? )
 // //////////////   MODEL METHOD ///////////
 // WE NEED ACCESS TO THE 'this' BINDING - so, ES5 function()...
 UserSchema.statics.findByToken = function (token) {
-    console.log("WR__ 88 USER.JS findByToken token: ", token);
+    // console.log("WR__ 88 USER.JS findByToken token: ", token);
     var User = this; // MODEL is the 'this' here
 
     // see also playground/hashing.js
     var decoded; // leave undefined, here. why? jwt.verify() will throw error. we'll use try catch below to deal with that. But/So, I guess I'm inferring, you don't want to DECLARE variables inside a TRY block. Jus' guessin'
     try {
         decoded = jwt.verify(token, 'abc123'); // our Secret will be REMOVED from source code, kids.
-        console.log("WR__ 87 USER.JS decoded: ", decoded);
+        // console.log("WR__ 87 USER.JS decoded: ", decoded);
 
         /*
          WR__ 87 USER.JS decoded:  { _id: '58690d76bb624bb5bdddb230',
@@ -196,7 +210,7 @@ UserSchema.statics.findByToken = function (token) {
 
 UserSchema.pre('save', function (next) {
     var user = this; // bind this once more
-    console.log("WR__ 55 PRE SAVE user: ", user);
+    // console.log("WR__ 55 PRE SAVE user: ", user);
     /*
 Model method isModified returns T/F re: a property
 e.g. a user edit that did not modify pw, don't re-hash that pw value...!
@@ -205,20 +219,20 @@ e.g. a user edit that did not modify pw, don't re-hash that pw value...!
         // PW WAS modified
         // We will want to *Hash* the plain text pw
 
-        console.log("WR__ 56 IF Modified True user.password: ", user.password);
+        // console.log("WR__ 56 IF Modified True user.password: ", user.password);
 
         // SALT, HASH on user.password
         bcrypt.genSalt(4, (err, salt) => {
             bcrypt.hash(user.password, salt, (err, hashedPassword) => {
             user.password = hashedPassword;
-        console.log("WR__ 56A HASHED? god willing  user.password: ", user.password);
+        // console.log("WR__ 56A HASHED? god willing  user.password: ", user.password);
             next();
         });
         });
     } else {
         // PW was NOT modified
         // Don't *Re-Hash* it !!!
-        console.log("WR__ 57 IF Modified False user.password is still: ", user.password);
+        // console.log("WR__ 57 IF Modified False user.password is still: ", user.password);
         // We sort of do nothing, heh-heh, viz. hash biz.
         // But ya still gotta send it back/next/along, mate!
         next();

@@ -17,12 +17,16 @@ const request = require('supertest');
 const { ObjectID } = require('mongodb');
 
 const { app } = require('./../server');
+const { User } = require('./../models/user');
 const { Todo } = require('./../models/todo');
+const { todos, populateTodos, users, populateUsers } = require('./seed/seed');
+
 
 /*
 Because our testing includes ObjectIds - we need to explicitly create them here in our sort of dummied up test data (rather than let them be created dynamically by MongoDB etc. ...)
 Hmm.
  */
+/*  REFACTORED TO /SERVER/TESTS/SEED/SEED.JS:
 const todos = [
     {
         _id: new ObjectID(),
@@ -42,11 +46,13 @@ const todos = [
         _id: new ObjectID(),
         text: 'Test todo 04'
     },
-]
+];
+*/
 
 // For testing, control what is in the database.
 // HAD BEEN: Just empty it
 // NOW NEEDED: Empty it, then fill with our known 4.
+/* Function Refactored to /SERVER/TESTS/SEED/SEED.JS:
 beforeEach((done) => {
     Todo.remove({}).then(
         () => { // Deletes ALL items
@@ -55,7 +61,10 @@ beforeEach((done) => {
     () => done()
 ); // fire off done here
 });
+*/
 
+beforeEach(populateTodos); //
+beforeEach(populateUsers); //
 
 
 
@@ -102,7 +111,7 @@ describe('POST /todos', () => {
     // ASYNC. Use done.
    it('should create a new todo', (done) => {
        var text = 'wot i got';
-    console.log("Lisa? 3");
+    // console.log("Lisa? 3");
        // supertest in action! (whoa)
 request(app)
     .post('/todos') // dumkopf! I had ('./todos') Ugh!
@@ -114,16 +123,16 @@ request(app)
 })
     .end((err, res) => {
     if (err) {
-        console.log("Lisa? 4 err");      // return *stops* function execution
+        // console.log("Lisa? 4 err");      // return *stops* function execution
         return done(err);
     }
-        console.log("Lisa? 2");
+        // console.log("Lisa? 2");
     // DATABASE STUFF:
     // ES5 way = Yep
     Todo.find({text: text}).then((todos) => { // fetch 'em all!
         // ES6 way = Also Yep
         // Todo.find({text}).then((todos) => { // fetch 'em all!
-        console.log("Lisa?");
+        // console.log("Lisa?");
        expect(todos.length).toBe(1);
         expect(todos[0].text).toBe(text);
         done();
@@ -439,3 +448,136 @@ it('should return 404 for NON-ObjectId', (done) => {
 
 
 }); // /describe(PATCH)
+
+
+
+/* **********  USERS ************** */
+describe('GET /users/me', () => {
+   it('should return user if authenticated', (done) => {
+
+       //supertest
+   request(app)
+       .get('/users/me')
+        .set('x-auth', users[0].tokens[0].token) // kinda hard-coded; get off our test user data (seed.js)
+        .expect(200)
+        .expect((res) => {
+    /* Leaving off the .toHexString() yields:
+     Error: Expected '586cd340328c593bbad7ffe6' to be 586cd340328c593bbad7ffe6
+     */
+       // expect(res.body._id).toBe(users[0]._id);
+       expect(res.body._id).toBe(users[0]._id.toHexString());        expect(res.body.email).toBe(users[0].email);
+    })
+    .end(done);
+});
+
+   it('should return a 401 if No Token', (done) => {
+
+       // TypeError: Cannot read property '0' of undefined
+       // console.log('WR__ 334', users[1].tokens[0].token);
+
+       request(app)
+       .get('/users/me')
+       // We do NOT set header nor send auth token...
+       // Hmmm, how about the "token" on user that doesn't have one ? null? undefined? error? hmm... TYPE ERROR
+       // TypeError: Cannot read property '0' of undefined
+       // .set('x-auth', users[1].tokens[0].token) // <<< NOPE!
+       .expect(401) // Unauthorized!
+       .expect((res) => {
+           // console.log("WR__ 33 401 No Token res.body: ", res.body); // {}
+       expect(res.body).toEqual({});
+   })
+       .end(done);
+   });
+});
+
+
+
+describe('POST /users', () => {
+   it('should create a user', (done) => {
+    var email = 'exby@example.com';
+    var password = '123abc';
+
+    request(app)
+        .post('/users')
+        .send({email: email, password: password})
+        .expect(200)
+        .expect((res) => {
+        expect(res.headers['x-auth']).toExist();
+        console.log("WR__ 123 res.body: ", res.body);
+        /* My API wraps it in  user: {}
+SERVER.JS:   res.header('x-auth', token).send( { user: newUser });
+
+         WR__ 123 res.body:  { user: { _id: '586cdc4d29f2d23e28a879a0', email: 'exby@example.com' } }
+         */
+        // expect(res.body._id).toExist(); // << Nope.
+        // expect(res.body.email).toBe(email); // << Nope.
+    expect(res.body.user._id).toExist();
+    expect(res.body.user.email).toBe(email);
+    })
+    /*
+    Below, instead of simply passing done, we can Go Further.
+    Our custom function can go to the database, make sure of what we got ... :o)
+     */
+// .end(done);
+.end((err) => {
+      if(err) {
+          return done(err);
+      }
+
+      User.findOne({email: email}).then((user) => {
+          expect(user).toExist();
+          expect(user.password).toNotBe(password); // We Hashed It!!
+    done();
+    });
+    });
+});
+
+it('*************** should not create user if email already taken', (done) => {
+    // exby@example.com
+    request(app)
+    .post('/users')
+    .send({email: users[0].email}) // redundant!
+    .expect(400)
+    .end(done);
+});
+
+
+describe('INVALID REQUESTS to POST /users', () => {
+    it('should return validation errors if request invalid: BAD E-MAIL', (done) => {
+    // not an email
+    // password shorter than 6 chars
+
+    /*
+     I have TWO things to test.
+     I think I need TWO 'it()' calls, not one.
+     */
+    request(app)
+        .post('/users')
+        .send({email: 'dudeATblingDOTcom', password: '123456'})
+        .expect(400) // b-a-d
+.end(done);
+});
+
+it('should return validation errors if request invalid: BAD PASSWORD', (done) => {
+
+    request(app)
+    .post('/users')
+    .send({email: 'dude@bling.com', password: '123'})
+    .expect(400) // b-a-d password
+    .end(done);
+
+});
+
+}); // NESTED DESCRIBE.  Hmm, the following test comes BEFORE the nested biz. Not Intuitive. Hmmph.
+
+it('$$$$$$$$$ $$$$$$$$$$$ *************** should not create user if email already taken', (done) => {
+    // exby@example.com
+    request(app)
+    .post('/users')
+    .send({email: users[0].email}) // redundant!
+    .expect(400)
+    .end(done);
+});
+
+
+});

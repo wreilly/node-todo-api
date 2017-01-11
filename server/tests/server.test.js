@@ -528,7 +528,8 @@ SERVER.JS:   res.header('x-auth', token).send( { user: newUser });
           expect(user).toExist();
           expect(user.password).toNotBe(password); // We Hashed It!!
     done();
-    });
+    })
+.catch((error) => { done(error) });
     });
 });
 
@@ -581,3 +582,159 @@ it('$$$$$$$$$ $$$$$$$$$$$ *************** should not create user if email alread
 
 
 });
+
+
+// ////////// LECTURE 96 ///////////
+describe('POST /users/login', () => {
+   it('should login user and return token (valid user, pw)', (done) => {
+    /*  SEED.JS  sample data:
+     {
+     _id: userTwoId,
+     email: 'joe222@example.com',
+     password: 'userTwoPass'
+     }
+     */
+
+    request(app) // SUPERTEST is request
+        .post('/users/login')
+        .send({email: users[1].email, password: users[1].password})
+        .expect(200)
+        .expect((res) => {
+    console.log('TEST RES.BODY: ', res.body);
+    /*
+     TEST RES.BODY:  { myMsg: 'Congrats ENCORE! you\'re logged in, user: ',
+     myUser: { _id: '58761083626b635ebb0f8d75', email: 'joe222@example.com' } }
+     */
+    console.log('TEST RES.HEADERS: ', res.headers);
+        /*
+         TEST RES.HEADERS:  { 'x-powered-by': 'Express',
+         'x-auth': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODc2MGZjNGM0ZTFjNzVlOTUyZWE3ODAiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDg0MTMyMjkzfQ.3Ec_VuxJevromEg_BSJjxvZ6A7WPy98IjYcZh2BuXmc',
+         'content-type': 'application/json; charset=utf-8',
+         'content-length': '126',
+         etag: 'W/"7e-XBlR+5C7nvL/F2tUmtrPqw"',
+         date: 'Wed, 11 Jan 2017 10:58:13 GMT',
+         connection: 'close' }
+         */
+    // res.headers.x-auth
+    // res.header.x-auth  << Also. Hmm.
+    // expect(res.res.IncomingMessage.headers.x-auth).ToExist();
+    // expect(res.headers.x-auth).toExist(); // << Nope.
+    expect(res.headers['x-auth']).toExist();
+    // expect(res.headers).toExist();
+    // expect(res.res.IncomingMessage.body.myUser.email).ToBe(users[1].email);
+    expect(res.body.myUser.email).toEqual(users[1].email);
+    })
+// .end(done);
+.end((err, res) => {
+        if (err) {
+           return done(err);
+        }
+        // Look in the database, see the new token:
+        User.findOne({email: res.body.myUser.email}).then((user) => {
+        if (!user) {
+            return; // ...
+    }
+    // otherwise:
+    console.log("WR__ HERE THE USER from database: ", user);
+        /*
+         WR__ HERE THE USER from database:  { _id: 5876164f35eb575f2fc3c12b,
+         email: 'joe222@example.com',
+         password: '$2a$04$d1ozlbeGnJPlB2GJtaSZie3XLLcyJYDEnAqeoQPB6EDDG59Hu.R1y',
+         __v: 1,
+         tokens:
+         [ { access: 'auth',
+         token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI1ODc2MTY0ZjM1ZWI1NzVmMmZjM2MxMmIiLCJhY2Nlc3MiOiJhdXRoIiwiaWF0IjoxNDg0MTMzOTY3fQ.9GP3y5ESdwDx7tsIGCJqRf4f8fh1siuyAHchSUUbhFA',
+         _id: 5876164f35eb575f2fc3c150 } ] }
+         */
+    // expect(user.tokens.access).toBe("auth"); // No. << ARRAY!!
+    expect(user.tokens[0].access).toBe("auth"); // Yep.
+    expect(user.tokens[0]).toInclude({
+        access: "auth",
+        token: res.headers['x-auth']
+    });
+    done();
+    })
+.catch((error) => { done(error) });
+/*
+        User.findOne({email: res.body.myUser.email}).then((resolve, reject) => {
+
+    })
+*/
+    });
+});
+
+/* YES!  WORKS. MY RE-WRITE OF ABOVE TEST. VERY NICE. ****
+it('should reject invalid login (wrong user, or pw)', (done) => {
+    var dataToTest = 'valueToTest';
+
+request(app) // SUPERTEST is request
+    .post('/users/login')
+    .send({email: users[1].email, password: users[1].password})
+    .expect(200)
+    .expect((res) => {
+    expect(res.header['x-auth']).toExist();
+    expect(res.body.myUser.email).toEqual(users[1].email);
+})
+    .end((err, res) => {
+    if (err) {
+        return done(err);
+    }
+    User.findById(users[1]._id).then((user) => {
+    expect(user.email).toEqual(users[1].email);
+expect(user.email).toEqual(res.body.myUser.email);
+expect(user.tokens[0].token).toEqual(res.headers['x-auth']);
+        done();
+})
+.catch((error) => { done(error) });
+});
+});
+*/
+
+
+it('should reject invalid login (wrong user, or pw)', (done) => {
+    var badPass = 'abc123';
+    var nobodyEmail = 'josephine222@example.com';
+
+request(app) // SUPERTEST is request
+    .post('/users/login')
+    // .send({email: users[1].email, password: badPass}) // "error:  new Promise bcrypt compare failed" = Good!
+    .send({email: nobodyEmail, password: badPass}) // "error:  error:  USER.JS: findByCredentials: No user found with that e-mail" = Good!
+    .expect(400)
+    // .end(done);
+    .expect((res) => {
+    expect(res.header['x-auth']).toNotExist();
+// expect(res.body.myUser.email).toEqual(users[1].email);
+})
+.end((err, res) => {
+    if (err) {
+        return done(err);
+    }
+    // User.findById(users[1]._id).then((user) => {
+    // User.findOne({email: users[1].email}).then((user) => {
+    User.findOne({email: nobodyEmail}).then((user) => {
+        if (!user) {
+            console.log("WE FOUND NO USER W THAT EMAIL", nobodyEmail);
+            /*
+             error:  USER.JS: findByCredentials: No user found with that e-mail
+             WE FOUND NO USER W THAT EMAIL josephine222@example.com
+             */
+            return done(err);
+}
+    expect(user.email).toEqual(users[1].email); // boring.
+// expect(user.email).toEqual(res.body.myUser.email);
+// expect(user.tokens[0].token).toEqual(res.headers['x-auth']);
+
+/*
+Instructor tested (having passed in good e-mail, but bad password):
+expect(user.tokens.length().toBe(0);
+ */
+
+done();
+})
+.catch((error) => { done(error) });
+
+});
+});
+
+
+}); // /describe(POST /users/login)

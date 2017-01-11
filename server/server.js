@@ -539,7 +539,20 @@ res.status(200).send('Congrats you\'re logged in, user: ' + user);
 });
 */
 
-
+app.delete('/users/me/token', authenticate, (req, res) => {
+    // req.token available (from authenticate.js)
+    // new Instance Method on model
+    // removeToken 'returns' results here such that it can be chained on .then()...
+    req.user.removeToken(req.token).then(
+        // resolve function (positive result from then promise)
+        () => { // empty parens; not getting any data back, or at least not that we will make any use of
+        res.status(200).send();
+},
+// reject function (negative/error from then promise)
+() => {
+        res.status(400).send();
+});
+});
 
 
 // app.listen(3000, () => {

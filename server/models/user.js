@@ -70,8 +70,8 @@ var UserSchema = new mongoose.Schema({
 
 });
 
-// INSTANCE METHOD   - UserSchema.methods
-// MODEL METHOD      - UserSchema.statics
+// INSTANCE METHOD   - UserSchema.methods  toJSON; generateAuthToken; removeToken
+// MODEL METHOD      - UserSchema.statics  findByToken; findByCredentials
 /*
 !!! ARROW FUNCTIONS - recall - do **NOT** bind a 'this' keyword.
 So, we go back to Old School ES5 "function () {}" method style, because the 'this' here needs to reference the Individual Document (the user).
@@ -155,6 +155,24 @@ Our promise here returns a value (token) instead of another promise ... ( ? )
     }
     );
 }; // /generateAuthToken()
+
+
+
+UserSchema.methods.removeToken = function (token) {
+    var user = this;
+
+    // MongoDB operator: $pull  ~04:20  If it matches, it pulls entire object from array
+    // We 'return' from here, to keep it going on the chain over in server.js that called it....
+    return user.update({
+        $pull: {
+            tokens: {
+                token: token // ES5
+                // token // ES6
+            }
+        }
+    });
+};
+
 
 
 // //////////////   MODEL METHOD ///////////

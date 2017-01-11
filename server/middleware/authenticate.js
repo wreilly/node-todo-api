@@ -15,7 +15,7 @@ var authenticate = (req, res, next) => {
 
     User.findByToken(token).then((user) => {
         if(!user) {
-        return Promise.reject("AUTHENTICATE REFACTOR: my custom err msg: good token, no user, solly");
+        return Promise.reject("$$$ AUTHENTICATE.JS $$$ AUTHENTICATE REFACTOR: my custom err msg: good token, no user, solly");
 
     }
 // NEW STUFF...
@@ -27,6 +27,11 @@ var authenticate = (req, res, next) => {
     // res.send(user); // << WAS
     req.user = user; // << NEW
     req.token = token; // << NEW
+
+    // console.log("WR__ 777 $$$ AUTHENTICATE.JS $$$ req: ", req); // de trop
+    console.log("WR__ 777b $$$ AUTHENTICATE.JS $$$ req.user: ", req.user);
+    console.log("WR__ 777c $$$ AUTHENTICATE.JS $$$ req.token: ", req.token);
+
 
     next(); // MUST call
 

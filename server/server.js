@@ -18,6 +18,7 @@ const { mongoose } = require('./db/mongoose');
  */
 
 const { ObjectID } = require('mongodb');
+const bcrypt = require('bcryptjs');
 
 const { Todo } = require('./models/todo');
 const { User } = require('./models/user');
@@ -324,32 +325,6 @@ res.status(400).send(err);
 // //////// LECTURE 91 PRIVATE ROUTES
 
 
-var authenticate = (req, res, next) => {
-
-    var token = req.header('x-auth');
-
-    User.findByToken(token).then((user) => {
-      if(!user) {
-        return Promise.reject("AUTHENTICATE REFACTOR: my custom err msg: good token, no user, solly");
-
-    }
-// NEW STUFF...
-    /* ~14:02
-    Instead of just sending back the user as response,
-    we will 'modify the request object, such that we can use
-    it (the modified request object) in the route down below...
-     */
-    // res.send(user); // << WAS
-    req.user = user; // << NEW
-    req.token = token; // << NEW
-
-    next(); // MUST call
-
-}).catch((error) => {
-        res.status(401).send(error);
-        // Here in catch(error), we do NOT call the next(). just saying.
-});
-};
 
 /*
 *** REFACTORED 'authenticate' out to its own function (above)
@@ -419,6 +394,150 @@ res.send(user);
 
 }); // /GET /users/me
 */  // OLD authenticated code now refactored out. **************
+
+
+
+
+// **********
+// POST /users/login (email, password)
+// LECTURE 95
+
+/*
+Find an existing user in MongoDB matching
+use lodash _ 'pick'
+ */
+
+app.post('/users/login', (req, res) => {
+    var emailPassedIn = req.body.email;
+var passwordPassedIn = req.body.password;
+/* Working fine:
+ console.log("WR__ 11 req.body: ", req.body);
+ console.log("WR__ 22 emailPassedIn: ", emailPassedIn);
+ console.log("WR__ 33 passwordPassedIn: ", passwordPassedIn);
+ */
+
+var body = _.pick(req.body, ['email', 'password']); //
+console.log("SERVER.JS: lodash _.pick body? ", body);
+console.log("req.body? ", req.body);
+/*
+ lodash _.pick body?  { email: 'HASH99@rabbit.com', password: '123456' }
+ req.body?            { email: 'HASH99@rabbit.com', password: '123456' }
+
+ Though if the request does come with more stuff ... pick gets you what you want. Bon.
+ e.g.
+ POST: {
+ "email": "HASH99@rabbit.com",
+ "password": "123456",
+ "extrastuff": "please ignore"
+ }
+
+ lodash _.pick body?  { email: 'HASH99@rabbit.com', password: '123456' }
+ req.body?            { email: 'HASH99@rabbit.com', password: '123456', extrastuff: 'please ignore' }
+ */
+
+/*
+ Nope! Don't do this SALTED HASH business! (use bcyrpt.compare() instead)
+
+ var hashPasswordPassedIn = bcrypt.genSalt(12, (err, salt) => {
+ bcrypt.hash(passwordPassedIn, salt, (err, hash) => {
+ console.log("WR__ 66 hash: ", hash);
+ return hash;
+ });
+ });
+ */
+
+/*
+ .catch((err) => {
+ console.log("WR__ 44 Rats err: ", err);
+ });
+ */
+
+// console.log("WR__ 55 hashPasswordPassedIn: ", hashPasswordPassedIn);
+
+/*
+ REFACTOR TIME!!
+ We're going to put the "FIND" over to a User model method (UserSchema.statics)
+ "findByCredentials"
+ Take an EMAIL (that's it)
+ Find One user with that EMAIL (There should be only one)
+ THEN test that returned document for password/hash match, using compare()
+
+ Returns: 1) document for the user, 2) (enhanced) AUTH Token too
+ */
+User.findByCredentials(body.email, body.password).then((user) => {
+/*
+Huh. O.K. Am learning from looking at Instructor code, that here we do NOT need/use a "if(!user)" test.
+That IF test was already handled down at the USER.JS function (findByCredentials()). if(!user) that function does a Promise.reject, and the Promise.reject when it gets here, just gets shunted all the way down to our CATCH(error).
+So that is why we "never get here" in the line just below.
+O.K. Bon.
+ */
+/* NOT NEEDED: (read above)
+    if (!user) {
+    console.log("WR__ SERVER.JS findByCredentials !user: nuttin' here neither "); // No we never get here. (Seems.)
+    return res.status(404).send('oops No User - findByCredentials');
+    // reject promise thing will be enhancement here ...
+}
+*/
+console.log("WR__ SERVER.JS findByCredentials call. user: ", user);
+/*
+Woot. We got a user.
+- Known e-mail. Good.
+- Plain text password provided does match bcrypt.compare() to stored hash. Good.
+Now, time to give this nice person a Token. :o)
+%%%%%%%%%% TOKEN TIME!!!! %%%%%%%%%%%%
+ */
+return user.generateAuthToken().then((token) => {
+    if(token) { // hmm, Instructor code does not have this if(token) test
+        // Just plow ahead, do the 'res' thing. If no token, if errors, 'catch()' will get you.... :)
+        res.header('x-auth', token);
+        res.status(200).send({'myMsg': "Congrats ENCORE! you\'re logged in, user: ", myUser: user});
+    } else { // hmm, again Instructor code does not have this "error" condition biz. Unreachable code??
+        Promise.reject('Error issuing auth token!');
+    }
+});
+}).
+catch((error) => {
+    console.log('error: ', error); // Yes, this gets the reject('reason rejected') message. Great!
+    res.status(400).send('oops Something Went Wrong with the user we did findByCredentials, hmm...');
+})
+;
+}); // /app.post(users/login)
+
+/*
+User.findOne({
+    email: emailPassedIn,
+/!*
+    password: bcrypt.genSalt(12, (err, salt) => {
+        bcrypt.hash(passwordPassedIn, salt, (err, hash) => {
+        console.log("WR__ 66INSIDE hash: ", hash);
+return hash;
+});
+})
+*!/
+
+// HAHD-CODE THE SUCKAH!
+    /!*
+    THAT worked:
+     Congrats you're logged in, user: { _id: 586d747155e6e854b3e20aff,
+     email: 'HASH99@rabbit.com',
+     password: '$2a$04$hEyqJ7zvC41oH1OMhF/sxus3V0unAywtPWCJAQ75LcZ0WzcCcKKSS',
+     __v: 1,
+     *!/
+password: '$2a$04$hEyqJ7zvC41oH1OMhF/sxus3V0unAywtPWCJAQ75LcZ0WzcCcKKSS'
+
+// password: hashPasswordPassedIn
+
+}).then((user) => {
+    if(!user) {
+        return res.status(404).send('Login Error: No User Found!');
+}
+// Get a TOKEN for them too!! TODO
+res.status(200).send('Congrats you\'re logged in, user: ' + user);
+});
+
+// next();
+});
+*/
 
 
 

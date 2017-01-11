@@ -114,7 +114,7 @@ UserSchema.methods.generateAuthToken = function () {
 
     // add this token to tokens ARRAY
     user.tokens.push({  // ES5 way
-        access: access,
+        access: access, // << value is 'auth', recall
         token: token
     });
     // user.tokens.push({ access, token }); // ES6 way
@@ -146,7 +146,7 @@ Our promise here returns a value (token) instead of another promise ... ( ? )
         return token; // this is the SUCCESS callback function ...
     // ** UND VHERE ISN DE FAILUURE CALLBACKENZIES??!
 },
-    // FAILUURE! <<<<< Hmm. Instructor code does not have this.
+    // FAILUURE! (?) <<<<< Hmm. Instructor code does not have this.
     //                 I believe I am on a Wrong Track here.
     //                 Probably benign, never-reached code. C'est la vie.
     (error) => {
@@ -167,7 +167,7 @@ UserSchema.statics.findByToken = function (token) {
     var decoded; // leave undefined, here. why? jwt.verify() will throw error. we'll use try catch below to deal with that. But/So, I guess I'm inferring, you don't want to DECLARE variables inside a TRY block. Jus' guessin'
     try {
         decoded = jwt.verify(token, 'abc123'); // our Secret will be REMOVED from source code, kids.
-        // console.log("WR__ 87 USER.JS decoded: ", decoded);
+        console.log("WR__ 87 USER.JS decoded: ", decoded);
 
         /*
          WR__ 87 USER.JS decoded:  { _id: '58690d76bb624bb5bdddb230',
@@ -206,6 +206,91 @@ UserSchema.statics.findByToken = function (token) {
         'tokens.access': 'auth'
     });
 } // /UserSchema.statics.findByToken()
+
+
+// FIND BY CREDENTIAL
+UserSchema.statics.findByCredentials = function (email, password) {
+    console.log("WR__ 666AA findByCredentials email + password passed in: " + email + " : " + password); // Yep.
+    var User = this;
+
+    /*
+     return User.findOne({email: email}).then((err, user) => {
+     if (err) {
+     // return res.status(400).send('oops here in findByCredentials we got ERR: ', err);
+     return err; // don't do res.send stuff from here!
+
+     }
+     */
+    return User.findOne({email: email}).then((user) => {
+
+/* ok - yes. let's keep the simpke "if(!user)" test here.
+No need to, right here, do the whole "new Promise()" etc.
+ */
+            if (!user) {
+
+        console.log("WR__ 666XX findByCredentials findOne !user : nuttin' "); // Yep.
+
+
+        // Hmm. Even though there is a 'return' "above" here,
+        //      we still do a 'return' right here.
+        // Why? Because right here, we are down inside a chained Promise...
+        // from which we do need to 'return' "up". Ca va? Hmm.
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch
+        return Promise.reject('USER.JS: findByCredentials: No user found with that e-mail');
+    }
+ console.log("WR__ 666 findByCredentials user!", user);
+
+
+    /* ********************
+    O.K., we DID find a user ... time to return it, hey?
+
+    Hmm, seems ALL THREE of  these next lines/approaches work. Hmm.
+    Maybe # 2 makes most sense here. < Yes, having done the "if(!user) test above, don't need it here (in # 3). Bon.
+     */
+    // return user; // # 1
+    // return Promise.resolve(user); // # 2 <<<<<<<<<
+/* # 3: All this biz...
+    return new Promise((resolve, reject) => {
+        console.log("WR__ 666ZZZ findByCredentials new Promise - user!", user);
+            if (!user)
+    {
+        reject('WR__ 999 new Promise hmm no user ');
+    }
+    else
+    {
+        console.log("WR__ 666BB new Promise resolve etc. findByCredentials user!", user);
+        resolve(user);
+    };
+});
+    */
+
+    /* ******************** */
+
+
+    /*
+    $$$$$$$$$$  OK - It is PASSWORD BCRYPT TIME $$$$$$$$$$
+     https://www.npmjs.com/package/bcrypt#to-check-a-password
+    bcrypt.compare(pw, user.hash) true: x resolve  false: y reject
+     */
+    return new Promise((resolve, reject) => {
+        // console.log("WR__ 123a bcrypt world: password: ", password);
+    // console.log("WR__ 123b bcrypt world: user: ", user);
+
+        bcrypt.compare(password, user.password).then((response) => {
+            // console.log("WR__ 123c bcrypt world: response: ", response);
+        if(response) {
+            // Promise.resolve(user); // << No.
+            // return Promise.resolve(user); // << No.
+            resolve(user); // Yep.
+        } else {
+            // Promise.reject('new Promise bcrypt compare failed'); // << No.
+            // return Promise.reject('new Promise bcrypt compare failed'); // << No.
+            reject('new Promise bcrypt compare failed'); // Yep.
+}
+}); // /.then
+}); // /new Promise (viz. bcrypt)
+}); // /findOne({email})
+}; // /findByCredentials(email, password)
 
 
 UserSchema.pre('save', function (next) {

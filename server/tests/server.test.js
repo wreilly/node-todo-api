@@ -738,3 +738,36 @@ done();
 
 
 }); // /describe(POST /users/login)
+
+
+describe('DELETE /users/me/token', () => {
+   it('should remove auth token on logout', (done) => {
+    // DELETE
+    // Set x-auth equal to token
+    // 200
+    // Find user, verify that tokens array is 0 length
+
+    var tokenThisTime = users[0].tokens[0].token;
+    console.log("tokenThisTime: ", tokenThisTime);
+
+    request(app)
+        .delete('/users/me/token')
+        .set('x-auth', tokenThisTime)
+        .expect(200)
+        .end((err, res) => {
+        if (err) {
+            return done(err);
+        }
+        User.findById(users[0]._id).then((user) => {
+       expect(user.tokens.length).toBe(0);
+       // return(done); // << Nope.
+       done();
+    }).catch((error) => {
+            return done(error);
+    });
+    });
+
+
+});
+
+}); // /describe DELETE /users/me/token

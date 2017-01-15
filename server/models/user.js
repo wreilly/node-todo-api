@@ -185,7 +185,7 @@ UserSchema.statics.findByToken = function (token) {
     var decoded; // leave undefined, here. why? jwt.verify() will throw error. we'll use try catch below to deal with that. But/So, I guess I'm inferring, you don't want to DECLARE variables inside a TRY block. Jus' guessin'
     try {
         decoded = jwt.verify(token, 'abc123'); // our Secret will be REMOVED from source code, kids.
-        console.log("WR__ 87 USER.JS decoded: ", decoded);
+        // console.log("WR__ 87 USER.JS decoded: ", decoded);
 
         /*
          WR__ 87 USER.JS decoded:  { _id: '58690d76bb624bb5bdddb230',
@@ -207,6 +207,7 @@ UserSchema.statics.findByToken = function (token) {
         });
 */
 // SHORT version of above:
+        console.log('USER.JS MODEL: my custom error message... jwt.verify fell over, kid');
         return Promise.reject('USER.JS MODEL: my custom error message... jwt.verify fell over, kid');
         // return Promise.reject(); // we'll just send back empty
     }

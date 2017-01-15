@@ -30,7 +30,13 @@ const users = [{
     {
         _id: userTwoId,
         email: 'joe222@example.com',
-        password: 'userTwoPass'
+        password: 'userTwoPass',
+        tokens: [
+            {
+                access: 'auth',
+                token: jwt.sign({ _id: userTwoId, access: 'auth' }, 'abc123').toString()
+            }
+        ]
     }];
 
 const populateUsers = (done) => {
@@ -38,7 +44,7 @@ const populateUsers = (done) => {
     User.remove({}).then(
         () => {
         /*
-         By using .save() on the User model, instead of just "insertMany" as we did on Todos,
+         By using .save() here on the User model, instead of just "insertMany" as we did on Todos,
          we get our user logic of hashing the password. "insertMany" would have skipped that.
          */
         var userOne = new User(users[0]).save();
@@ -75,21 +81,27 @@ Huh. Interesting. Instead of chaining the .then() right here to the Promise.all,
 const todos = [
     {
         _id: new ObjectID(),
-        text: 'Seeded Test todo 01'
+        text: 'Seeded Test todo 01',
+        _creator: userOneId
     },
     {
         _id: new ObjectID(),
         text: 'Seeded Test todo 02',
         completed: true,
-        completedAt: 1000
+        completedAt: 2000,
+        _creator: userOneId
     },
     {
         _id: new ObjectID(),
-        text: 'Seeded Test todo 03'
+        text: 'Seeded Test todo 03',
+        completed: true,
+        completedAt: 3000,
+        _creator: userTwoId
     },
     {
         _id: new ObjectID(),
-        text: 'Seeded Test todo 04'
+        text: 'Seeded Test todo 04',
+        _creator: userTwoId
     }
 ];
 

@@ -40,11 +40,14 @@ app.use(bodyParser.json());
 // CRUD Create Read Update Delete
 
 // POST /todos
-app.post('/todos', (req, res) => {
+// authenticate gives us: 1) user, 2) token
+app.post('/todos', authenticate, (req, res) => {
+// app.post('/todos', (req, res) => {
     console.log("WR__ POST /todos 01 req.body", req.body);
     var todo = new Todo({
         text: req.body.text,
-        completed: req.body.completed
+        _creator: req.user._id
+        // completed: req.body.completed // Not sure why I put this in; Instructor code does not. ok.
     });
     console.log("POST /todos 02 WR__ NEW TODO! ", todo);
     todo.save().then((doc) => {
@@ -56,9 +59,11 @@ app.post('/todos', (req, res) => {
 
 // GET /todos/
 
-app.get('/todos', (req, res) => {
+// app.get('/todos', (req, res) => {
+app.get('/todos', authenticate, (req, res) => {
     console.log("WR__ 97 wtf app.get /todos"); // yep.
-    Todo.find().then((todos) => {
+// Now limiting the find to the (authenticated) user's Todos ...
+    Todo.find({_creator: req.user._id}).then((todos) => {
     // res.send(todos) // ARRAY
     // res.send({todos: todos}) // Put the ARRAY onto an Object = More Flexible Future
 res.send({todos}) // ES6 way to Put the ARRAY onto an Object = More Flexible Future
@@ -80,19 +85,34 @@ GET  localhost:3000/todos
 
 
 
+// GET /todos/:id
 // GET /todos/12345
-app.get('/todos/:id', (req, res) => {
+// app.get('/todos/:id', (req, res) => {
+app.get('/todos/:id', authenticate, (req, res) => {
     // res.send(req.params);
     var id = req.params.id;
-    if (!ObjectID.isValid(id)) { // If NOT Valid... (not even an ObjectId)
+    if (!ObjectID.isValid(id)) { // If NOT Valid... (because it's not even an ObjectId)
         console.log('LOG: not even an ObjectId! so-called id: ', id);
         // return res.status(404).send(); // Instructor  Empty Body
         return res.sendStatus(404); // sendStatus preferred ... Though note that using this 'sendStatus()' you cannot then also "send()" again. "Error: Can't set headers after they are sent." okay.
         // 'Not found'
     }
 
-        // findById 1) err 400 send empty body 2) if todo send todo if !todo
-Todo.findById(id).then((todoDoc) => {
+        /* findById 1) err 400 send empty body 2) if todo send todo if !todo
+         */
+/* Hey! With AUTHENTICATION now, we can't allow the API to merely:
+1) require a TODO ID
+2) require a token (authenticated logged-in user)
+That's not enough!
+Any logged-in user, if they get or guess a todo ID, would get that data. Not good.
+So - improvement: do our FIND on the database based on BOTH.
+If you send in a todo id #, fine, but that # must be on a document that also matches YOU as the creator. Cheers.
+ */
+// Todo.findById(id).then((todoDoc) => {
+Todo.findOne({
+    _id: id,
+    _creator: req.user.id // << Nice. See "Remark" in authenticate.js
+}).then((todoDoc) => {
         if(!todoDoc) {
     res.status(404).send("SEND: That ID not found");
     return console.log("LOG: That ID not found");
@@ -136,7 +156,8 @@ return console.log("LOG: That ID WAS found");
 
  }); // /app.delete
  */
-app.delete('/todos/:id', (req, res) => {
+// app.delete('/todos/:id', (req, res) => {
+app.delete('/todos/:id', authenticate, (req, res) => {
     var idThisTime = req.params.id;
 // get id
 if (!ObjectID.isValid(idThisTime)) {
@@ -147,18 +168,29 @@ if (!ObjectID.isValid(idThisTime)) {
     return res.status(404).send(); // or this way...
 }
 // Database time!
-Todo.findByIdAndRemove(idThisTime).then((todo) => {
+/*
+With AUTHENTICATION now, we need ensure 2 things not 1:
+- Todo ID
+- Creator
+ */
+// Todo.findByIdAndRemove(idThisTime).then((todo) => {
+Todo.findOneAndRemove({
+    _id: idThisTime,
+    _creator: req.user._id
+}).then((todo) => {
     if(
 !todo
 )
 { // todo is null
     // Internal console log = more info:
-    console.log("Well, it was ObjectId, but no doc by that name: ", idThisTime);
+    console.log("SERVER.JS: DELETE TODO - Well, it was ObjectId, but no doc by that name: ", idThisTime);
+    console.log("=========\nInteresting: Here in api logic (server.js), if search fails (use case, right here), the only data we have access to is the passed-in parameter of the _id of the todo. (Presumably, any calling client would know something (?) about the todo _id they had, but... who knows.) \nIn any event, therefore the only data we (API response) can show in any detailed 'Why Not Found' message is just that todo _id (and okay, now with authentication, the user _id too), but these two things are not really v. helpful for real data (you don't have user email, you don't have todo text). Instead, you would have to manually go query database to find out what user, what todo. And this is entirely useless for Mocha testing data (_id dynamically generated each run - no capability to go 'find' it anywhere). Such is life. My best understanding. ('MBU', anyone?)\n=========")
+    console.log(`That is, the specified combination of: \n todo._id ${idThisTime} and \n user._id ${req.user._id} \nwas not found`);
     // External response to API called = less info:
     return res.status(404).send(); // solly! (not .send({}) btw
 }
 // Got this far, guess you got yosef a doc!:
-console.log("Yeppers: and here's the doc you just done snabbered: ", todo);
+console.log("SERVER.JS Yeppers: and here's the doc you just done snabbered: ", todo);
 res.status(200).send({todo: todo}); // ES5 old school way. Or just .send(todo); Better as this object thing though. And ES6? : .send({todo}); But you already knew that. ;)
 },
 (err) =>
@@ -173,65 +205,445 @@ res.status(200).send({todo: todo}); // ES5 old school way. Or just .send(todo); 
 
 
 
-// /////////////  P A  T  C  H   ///////
-app.patch('/todos/:id', (req, res) => {
-   var id = req.params.id;
-   var body = _.pick(req.body, ['text', 'completed']);
+// /////////////  P  A  T  C  H   ///////
+/*
+AUTHENTICATION NOW.
+That means only the owner of the todo can patch it! (of course)
+ */
+/*
+ENHANCEMENT:
 
-   if(!ObjectID.isValid(id)) {
-       // Not even an ObjectId fer chrissakes
-       console.log('raah! Not even an ObjectId fer chrissakes');
-       return res.status(404).send();
-   }
+As written, user must send BOTH 1) text AND 2) completed T/F.
+(Even if they have no update, viz. 1) perhaps, or 2).)
 
-if (_.isBoolean(body.completed) && body.completed) {
-       body.completedAt = new Date().getTime(); // JavaScript timestamp = # secs since 1970 Unix epoch. A number.
-} else {
+Enhancement: allow user to send 1) OR 2) (or both).
+
+ Three essential Use Cases.
+ $$$$$$$$$$$$$$$$$$$$$$$$$$$
+ 1. RE-WORD
+ PATCH TEXT (only)
+
+ 2. TOGGLE COMPLETE
+ PATCH COMPLETE (only)
+
+ 3. TOGGLE COMPLETE & RE-WORD
+ PATCH TEXT
+ PATCH COMPLETE (both...)
+ $$$$$$$$$$$$$$$$$$$$$$$$$$$
+ */
+app.patch('/todos/:id', authenticate, (req, res) => {
+    var id = req.params.id;
+var user = req.user; // < recall, authenticate puts user on req object. nice.
+
+console.log("SERVER.JS: PATCH: req.params.id: TODO ", id);
+console.log("SERVER.JS: PATCH: req.params.user.email: USER ", user.email);
+
+var body = _.pick(req.body, ['text', 'completed']);
+var myBody = req.body; //, ['text', 'completed']);
+// console.log("SERVER.JS: _pick body: ", body);
+// console.log("SERVER.JS: _pick 02 typeof(body.completed): ", typeof(body.completed));
+console.log("SERVER.JS: from req object: myBody: ", myBody);
+
+/*  No - doesn't work for us in this scenario. completed is undefined (!)
+if(completed in myBody) {
+    // https://www.nczonline.net/blog/2010/07/27/determining-if-an-object-property-exists/
+    console.log("HOT DAMN NICHOLAS ZAKAS");
+}
+*/
+
+/* Works. Veddy nice.
+// http://davidbcalhoun.com/2011/checking-for-undefined-null-and-empty-variables-in-javascript/
+if(typeof(justMadeThisUp) === 'undefined') {
+    // https://www.nczonline.net/blog/2010/07/27/determining-if-an-object-property-exists/
+    console.log("HOT DAMN DAVID CALHOUN! justMadeThisUp"); // Yeah! works. whoa.
+}
+*/
+/* Works.
+if(typeof(body.completed) === 'undefined') {
+    // https://www.nczonline.net/blog/2010/07/27/determining-if-an-object-property-exists/
+    // WR! N.B. 'undefined' not undefined   Sheesh.
+    console.log("HOT DAMN DAVID CALHOUN! body.completed");
+}
+*/
+
+
+if (!ObjectID.isValid(id)) {
+    // Not even an ObjectId fer chrissakes
+    console.log('raah! Not even an ObjectId fer chrissakes');
+    return res.status(404).send();
+}
+
+var useCase01Flag = false; // RE-WORD only
+var useCase02AFlag = false; // TOGGLE COMPLETE only, to TRUE/COMPLETE
+var useCase02BFlag = false; // TOGGLE COMPLETE only, to FALSE/NOT-COMPLETE
+var useCase03AFlag = false; // RE-WORD & TOGGLE COMPLETE, to TRUE/COMPLETE
+var useCase03BFlag = false; // RE-WORD & TOGGLE COMPLETE, to FALSE/NOT-COMPLETE
+var useCase99WARNINGFlag = false; // Used for NO text, NO completed sent. See "Warning" below
+
+
+var mySetVar = {}; // hmm empty obj?
+var myUnsetVar = {}; // hmm empty obj?
+var myConvenientUndefined = undefined;
+// console.log("WR__ typeof(myConvenientUndefined): ", typeof(myConvenientUndefined)); // undefined
+
+// ////////////// BREAKING THIS FIRST IF() ON PURPOSE: "false"
+// Why? Because it's Old Thinking, that's why!
+if (_.isBoolean(body.completed) && body.completed && false) {
+    // req.body.completed === true
+    console.log("useCase00 - SERVER.JS: PATCH.  _.isBoolean(body.completed) && body.completed: body.completed: ", body.completed);
+    body.completedAt = new Date().getTime(); // JavaScript timestamp = # secs since 1970 Unix epoch. A number.
+} else if ((typeof(body.completed) === 'undefined') && body.text) {
+    // USE CASE 1. Re-word. (No change to completed)
+
+    // } else if (!body.completed && body.text) { // <<< Nope
+    // body.completed === null <<< NOPE.
+    // N.B. completed is a Boolean. Just testing with '!' is dangerous.
+    // I want to know/assert/test that it is NOT PRESENT.
+    // But '!' of course just flips Boolean value (T->F or F->T). Hmm. Washout!
+
+    // SOLUTION (THank you David Calhoun) typeof() !=== undefined. Whew.
+
+
+    // USE CASE 1. Re-word. (No change to completed)
+// They didn't send any completed info. Let's leave that unchanged.
+    // That is, no, do not "hard-code" setting it to false. Leave as-is.
+    console.log("useCase01 - SERVER.JS: PATCH.  typeof(body.completed) === undefined &&  body.text: ", body.text);
+    useCase01Flag = true;
+    mySetVar = {
+        text: body.text
+        //   completed: body.completed,
+        // completedAt: body.completedAt
+    }
+
+    // Really, this is just N/A:
+    myUnsetVar = {
+        // no change to this
+    }
+
+
+} else if (!body.text && _.isBoolean(body.completed)) {
+    // req.body.text === null
+    // USE CASE 2. Toggle Complete. (No change to text)
+// They didn't send any text info. Let's leave that unchanged.
+
+    console.log("useCase02 - SERVER.JS: PATCH.  !body.text... body.completed: ", body.completed);
+
+    if (body.completed) {
+        useCase02AFlag = true;
+    } else {
+        useCase02BFlag = true;
+    }
+
+    if (body.completed) {
+        // User says to set 'completed' to TRUE = Completed!
+        // (regardless of what it might have been before ...)
+        mySetVar = {
+            // text: body.text
+            completed: body.completed,
+            // We put a new date/time on its being marked completed:
+            // Q. Can I put JavaScript logic right here like this? Think so...
+            completedAt: body.completedAt = new Date().getTime() // ?
+        };
+    } else {
+        // Need to do this as an Assignment (=) on the object first like so, THEN invoke that in the mySetVar object property setting (:) (below) (j'espere)
+        // console.log("WR__ 987 body.completedAt: ", body.completedAt); // undefined
+        body.completedAt = undefined;
+        // console.log("WR__ 654 body.completedAt: ", body.completedAt); // undefined
+        try {
+            mySetVar = {
+                // text: body.text
+                completed: body.completed,
+                // completedAt: null // null takes whole property entirely out of MongoDB record
+                // HMM ABOVE IS NOT SO: "completedAt" : null, << Hmm, maybe this is Good Enough.
+                // Let's try undefined instead
+                // http://stackoverflow.com/questions/12636938/set-field-as-empty-for-mongo-object-using-mongoose
+// See myUnsetVar instead. Not having success using $set to kill a field. Wish us luck
+                // completedAt: body.completedAt // No.: myConvenientUndefined // No: undefined
+
+                // https://docs.mongodb.com/manual/reference/operator/update/unset/
+            }
+            myUnsetVar = {
+                completedAt: ""
+            }
+            // throw pizza; // TRY CATCH CAUGHT ReferenceError: pizza is not defined
+        } catch (catchError) {
+            console.log("TRY CATCH CAUGHT", catchError);
+        }
+    } // if/else body.completed (true)
+
+} else if (body.text && _.isBoolean(body.completed)) {
+    // USE CASE 3. Both re-word and toggle complete.
+    console.log("useCase03 - SERVER.JS: PATCH.  body.completed ... body.text: ", body.completed + ' : ' + body.text);
+
+    if (body.completed) {
+        useCase03AFlag = true;
+    } else {
+        useCase03BFlag = true;
+    }
+
+
+    if (body.completed) {
+        // User says to set 'completed' to TRUE = Completed!
+        // (regardless of what it might have been before ...)
+        mySetVar = {
+            text: body.text,
+            completed: body.completed,
+            // We put a new date/time on its being marked completed:
+            // Q. Can I put JavaScript logic right here like this? Think so...
+            completedAt: body.completedAt = new Date().getTime() // ?
+        }
+        // NO "myUnsetVar"
+    } else {
+        mySetVar = {
+            text: body.text,
+            completed: body.completed
+            // completedAt: body.completedAt
+        }
+        myUnsetVar = {
+            completedAt: ""
+        }
+    }
+
+
+} else { // SHOULD NOT GET HERE ...
+    console.log("WARNING: SERVER.JS: PATCH. No body.text nor body.completed ? - hmm...");
+    // Old, original code:
        // Not a Boolean. (Or even if it is a Boolean, it is Not True (a.k.a. False))
-    body.completed = false;
-    body.completedAt = null; // removes value from database
+    // body.completed = false;
+    // body.completedAt = null; // removes value from database
+
+    useCase99WARNINGFlag = true;
+
 }
 
 // https://docs.mongodb.com/manual/reference/operator/update/inc/
 
-Todo.findByIdAndUpdate(id,
-    /* { $set: body },
-    *
-    * In other words, 'body' is already:
-    * {
-     text: body.text,   <<< whatever the text is
-     completed: body.completed, <<< etc.
-     completedAt: body.completedAt
-     }
-    *
-    *
-    * */
+/* **** 0001 *****************************************
+***************     $SET, NO $UNSET  ***********
+* findOneAndUpdate()
+* Use Case 01, 02A, 03A  << Also '99' (Warning)
+*
+* ! MAYBE I SHOULD JUST USE THOSE DAMNED FLAGS !  <<<< YEP.
+ * if (useCase01Flag || useCase02AFlag || useCase03AFlag)
+*
+* 01:
+* ((typeof(body.completed) === 'undefined') && body.text)
+ * ((typeof(body.completed) === 'undefined') && body.text) <<<< NO CHANGE NEEDED.
+ *
+ * 02A: Checked COMPLETE (and there is no text)
+ * if (!body.text && _.isBoolean(body.completed) )
+ * if (!body.text && _.isBoolean(body.completed) && body.completed )  <<<<< it is TRUE !!!
+*
+ * 03A: Checked COMPLETE  (and there is text)
+ * (body.text && _.isBoolean(body.completed))
+ * (body.text && _.isBoolean(body.completed) && body.completed) <<<<< it is TRUE!!!
 
-/* Interesting. I wrote like so: (Also works) */
-{ $set:
-    {
-        text: body.text,
-        completed: body.completed,
-        completedAt: body.completedAt
+
+** For this one 0001 - the common denominator is not so obvious as for 0002 below.
+* In fact, there isn't a common denominator. Okay.
+
+* *********************************************
+* *********************************************
+ */
+
+
+if ( useCase01Flag || useCase02AFlag || useCase03AFlag || useCase99WARNINGFlag ) {
+    console.log("WR__ 0001");
+
+    Todo.findOneAndUpdate({
+            _id: id,
+            _creator: user._id // (from req.user; see above)
+        },
+        /* { $set: body },
+         *
+         * In other words, 'body' is already:
+         * {
+         text: body.text,   <<< whatever the text is
+         completed: body.completed, <<< etc.
+         completedAt: body.completedAt
+         }
+         *
+         *
+         * */
+
+        /*
+         /!* Interesting. I wrote like so: (Also works) *!/
+         { $set:
+         {
+         text: body.text,
+         completed: body.completed,
+         completedAt: body.completedAt
+         }
+         },
+         */
+
+// mySetVar varies from Use Case 1, 2, 3 ... Cheers:
+        // https://docs.mongodb.com/manual/reference/operator/update/
+        {
+            $set: mySetVar
+        },
+        /*
+         { $set: mySetVar,
+         $unset: myUnsetVar // <<< This apparently FAILS when myUnsetVar is just an empty object: {}  Bummer.
+         },
+
+         Hmm, am I forced into some very non-DRY approach here?
+         Sheesh.
+         Use Case 02A = mark Completed - No $unset
+         Use Case 02B = mark Not Completed - Need $unset on completedAt
+
+         They 02A and 02B *can* share same API endpoint (good)
+         But they (unfortunately) both need their own MongoDB find() query, to effect the $unset (or not).
+         Bummer.
+
+         If I have this right, that is. Oy.
+         */
+
+
+        {
+            // MongoDB: false here gets you the updated doc, not the original doc
+            // returnOriginal: false
+            // Mongoose: true here gets you the updated ("new") doc, not the original doc
+            new: true
+        }).then((todo) => {
+        if(!todo) {
+            console.log("SERVER.JS: No todo found 404 Guess you had a mis-match USER/TODO console.log ");
+        return res.status(404).send("SERVER.JS: No todo found 404 Guess you had a mis-match USER/TODO res.send ");
+   /* Cool: My custom message in res.send() becomes "text:" property on the response object
+        RES.ERROR:  Sent from here in server.js, over to test
+        ...
+         status: 404,
+         text: 'SERVER.JS: No todo found 404 Guess you had a mis-match USER/TODO res.send ',
+         method: 'PATCH',
+         path: '/todos/587b65c08c56f1d59a678a1a'
+         */
+
+
     }
- },
-
- {
-     // MongoDB: false here gets you the updated doc, not the original doc
-       // returnOriginal: false
-     // Mongoose: true here gets you the updated ("new") doc, not the original doc
-     new: true
-   }).then((todo) => {
-       if(!todo) {
-           return res.status(404).send();
-}
-       console.log(todo);
-       res.status(200).send({todo: todo});
+    console.log("SERVER.JS: 0001 WR__ Here is our updated/patched todo! : ", todo);
+    res.status(200).send({todo: todo});
 }).catch((err) => {
-       res.status(400).send();
+        res.status(400).send(err); // usually that send() would be empty, not showing the err
 });
 
+
+} // /0001 if (useCase01Flag || useCase02AFlag || useCase03AFlag)
+/* *********************************************
+* *********************************************
+*/
+
+    else {  //  <<<<<<<<<< SUPER IMPORTANT! Between 0001 and 0002
+
+
+/* **** 0002 *****************************************
+ ***************     $SET, & $UNSET  ***********
+ * findOneAndUpdate()
+ * Use Case 02B, 03B
+ *
+ * ! MAYBE I SHOULD JUST USE THOSE DAMNED FLAGS !  <<< YEP.
+ * if ( useCase02BFlag || useCase03BFlag)
+ *
+ * 02B: Checked NOT complete (and there is no text)
+ * if (!body.text && _.isBoolean(body.completed) )
+ * if (!body.text && _.isBoolean(body.completed) && !body.completed )  <<<<< it is FALSE !!!
+
+ * 03B: Checked NOT complete (and there is text)
+ * (body.text && _.isBoolean(body.completed))
+ * (body.text && _.isBoolean(body.completed) && !body.completed) <<<<< it is FALSE!!!
+ *
+ * Is perhaps the common denominator just this? :    hmmmmmmmm. No, I don't think so ...
+ * // Well, maybe it is, since up above you already determined your 'mySetVar' viz. text or not. Hmm.   Here in '0002' we're just going to add the 'myUnsetVar', that's all. Hmm.
+ * (_.isBoolean(body.completed) && !body.completed)
+
+ * *********************************************
+ * *********************************************
+ */
+
+if ( useCase02BFlag || useCase03BFlag ) {
+    console.log("WR__ 0002");
+
+    Todo.findOneAndUpdate({
+            _id: id,
+            _creator: user._id // (from req.user; see above)
+        },
+        /* { $set: body },
+         *
+         * In other words, 'body' is already:
+         * {
+         text: body.text,   <<< whatever the text is
+         completed: body.completed, <<< etc.
+         completedAt: body.completedAt
+         }
+         *
+         *
+         * */
+
+        /*
+         /!* Interesting. I wrote like so: (Also works) *!/
+         { $set:
+         {
+         text: body.text,
+         completed: body.completed,
+         completedAt: body.completedAt
+         }
+         },
+         */
+
+// mySetVar varies from Use Case 1, 2, 3 ... Cheers:
+        // https://docs.mongodb.com/manual/reference/operator/update/
+        // 0001:
+/*
+        {
+            $set: mySetVar
+        },
+*/
+  // 0002:
+         { $set: mySetVar,
+         $unset: myUnsetVar // <<< This apparently FAILS when myUnsetVar is just an empty object: {}  Bummer.
+         },
+/*
+         Hmm, am I forced into some very non-DRY approach here?
+         Sheesh.
+         Use Case 02A = mark Completed - No $unset
+         Use Case 02B = mark Not Completed - Need $unset on completedAt
+
+         They 02A and 02B *can* share same API endpoint (good)
+         But they (unfortunately) both need their own MongoDB find() query, to effect the $unset (or not).
+         Bummer.
+
+         If I have this right, that is. Oy.
+         */
+
+
+        {
+            // MongoDB: false here gets you the updated doc, not the original doc
+            // returnOriginal: false
+            // Mongoose: true here gets you the updated ("new") doc, not the original doc
+            new: true
+        }).then((todo) => {
+        if(!todo) {
+        return res.status(404).send();
+    }
+    console.log("SERVER.JS: 0002 WR__ Here is our updated/patched todo! : ", todo);
+    console.log("SERVER.JS: 0002 WR__ Special Note for '0002': -------- ");
+    console.log("Here in code, completedAt: reads 'null', but in MongoDB it is GONE (good), owing to $unset. Cheers.");
+    res.status(200).send({todo: todo});
+}).catch((err) => {
+        res.status(400).send();
 });
+
+
+
+
+} // /0002 /if ( useCase02BFlag || useCase03BFlag)
+/* *********************************************
+ * *********************************************
+ */
+
+
+ } // <<<<<<< IMPORTANT!  FINAL brace to big if/else/if 0001, 0002
+
+}); // /app.patch /todos/:id
 
 
 

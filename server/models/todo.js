@@ -19,9 +19,18 @@ var Todo = mongoose.model('Todo', {
     completedAt: {
         type: Number,
         default: null
-    }
+    },
     // "createdAt" we can derive from _id
+
+    // '_' underscore convention means,
+    //    "This is an _id (ObjectId)"
+    _creator: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true
+    }
 });
+
+
 
 
 module.exports = { Todo }; // ES6 fanciness

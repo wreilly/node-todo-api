@@ -96,9 +96,9 @@ UserSchema.methods.generateAuthToken = function () {
     // Slam 'this' onto our var 'user' Cheers:
     var user = this;
     var access = 'auth';
-    var token = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
-    var tokenWITHHexString = jwt.sign({ _id: user._id.toHexString(), access: access}, 'abc123').toString(); // our SECRET
-    var tokenWITHOUTHexString = jwt.sign({ _id: user._id, access: access}, 'abc123').toString(); // our SECRET
+    var token = jwt.sign({ _id: user._id.toHexString(), access: access}, process.env.JWT_SECRET).toString(); // our SECRET
+    var tokenWITHHexString = jwt.sign({ _id: user._id.toHexString(), access: access}, process.env.JWT_SECRET).toString(); // our SECRET
+    var tokenWITHOUTHexString = jwt.sign({ _id: user._id, access: access}, process.env.JWT_SECRET).toString(); // our SECRET
 
     console.log("WR__ 111 tokenWITHHexString: ", tokenWITHHexString);
     console.log("WR__ 222 tokenWITHOUTHexString: ", tokenWITHOUTHexString);
@@ -184,7 +184,7 @@ UserSchema.statics.findByToken = function (token) {
     // see also playground/hashing.js
     var decoded; // leave undefined, here. why? jwt.verify() will throw error. we'll use try catch below to deal with that. But/So, I guess I'm inferring, you don't want to DECLARE variables inside a TRY block. Jus' guessin'
     try {
-        decoded = jwt.verify(token, 'abc123'); // our Secret will be REMOVED from source code, kids.
+        decoded = jwt.verify(token, process.env.JWT_SECRET); // our Secret will be REMOVED from source code, kids.
         // console.log("WR__ 87 USER.JS decoded: ", decoded);
 
         /*

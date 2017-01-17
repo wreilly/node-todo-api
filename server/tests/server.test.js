@@ -588,7 +588,81 @@ done();
 // **************************  /03B : Patch BOTH Text and Completed (FALSE) ************
 
 
+// ********** MISSED ONE! **********
+// ====================================
+it('should NOT update (PATCH) the todo if WRONG user, friend', (done) => {
+    /* We'll try simply todos[2] and users[0] (WRONG) Mis-Match (on purpose)  */
+    request(app)
+    .patch(`/todos/${todos[2]._id}`)
+    .set('x-auth', users[0].tokens[0].token)
+    .send({
+        text: "Trying to PATCH todo for WRONG user = No no.",
+        completed: true
+    })
+    // .expect(200) // Incorrect test
+    .expect(404) // Correct test
+    .end((err, res) => {
+        if (err) {
+            return done(err);
+        }
+        Todo.findById(todos[2]._id).then(
+// RESOLVE Promise
+           (todo) => {
 
+/* Hmm, guess one is a String, or something ?
+ Error: Expected
+ 587ccb283b7a3dfddb359249 to be
+ 587ccb283b7a3dfddb359249
+ */
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    console.log("typeof(todo._id): ", typeof(todo._id) + ' : ' + todo._id);
+console.log("typeof(todos[2]._id): ", typeof(todos[2]._id) + ' : ' + todos[2]._id);
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+
+/*
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ typeof(todo._id):      object : 587ccccb7916b3fe0ddd59f1
+ typeof(todos[2]._id):  object : 587ccccb7916b3fe0ddd59f1
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ @@@@@@@@@@@@@@@@@@@@@@@@@@@
+ */
+
+/*
+Hah-ah. Guess they're both OBJECTS, such that they may be EQUAL, but they are NOT "the same".
+Not: 'toBe' (the same (Object)).
+But: 'toEqual' (each other, despite being different Objects).
+H'okay. Lesson learned. (hopefully)
+ */
+// expect(todo._id).toBe(todos[2]._id); // NOPE.
+expect(todo._id).toEqual(todos[2]._id); // YEP!
+
+
+    expect(todo.text).toBe('Seeded Test todo 03'); // from SEED.JS
+done(); // <<< Don't Forget !!! (like I did)
+},
+// REJECT Promise
+   (err) => {
+    console.log("Ratzenfratzen. No todo found for some reason (we searched on todo._id only, not on user as well)");
+    console.log(`todo _id: ${todos[2]._id}`);
+    console.log(`Hmm .... user _id: ${users[0]._id}`);
+    return done(err);
+}).catch((catchError) => {
+    console.log("catchError ", catchError);
+    return done(catchError);
+}); // /.catch(  .then(   .findById(
+}); // /.end((err, res
+}); // /it(should  NOT PATCH todo for WRONG user
 
 
 it('should clear completedAt when todo is not complete', (done) => {

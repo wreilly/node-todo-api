@@ -244,6 +244,20 @@ var myBody = req.body; //, ['text', 'completed']);
 // console.log("SERVER.JS: _pick 02 typeof(body.completed): ", typeof(body.completed));
 console.log("SERVER.JS: from req object: myBody: ", myBody);
 
+/* ******** BIG FINDING **********
+From Instructor Code.
+- Right here, at top, when you have _.pick'ed the sent parameters (E.g. 'text' if it is sent, and NO 'text' property if it was NOT sent) ...
+- ... just use the resulting body or myBody or whatever you want to call it.
+- That way, you do NOT need to go CRAZY below trying to test for "Is body.text here, or not, etc."
+Only drawback (t'ain't much): if you do update text but do not send 'completed', then Instructor code defaults completed to FALSE. Perhaps a reasonable default.
+Even this could be rectified by use of this test (not in Instructor Code; found it On My Own), to see whether completed got sent at all:
+         (typeof(body.completed) === 'undefined')
+ I am now officially done with all this brou-ha-ha.
+ Yeesh.
+ Monday, January 16th, 2017 09:58 A.M.
+ */
+
+
 /*  No - doesn't work for us in this scenario. completed is undefined (!)
 if(completed in myBody) {
     // https://www.nczonline.net/blog/2010/07/27/determining-if-an-object-property-exists/
@@ -338,7 +352,16 @@ if (_.isBoolean(body.completed) && body.completed && false) {
         // User says to set 'completed' to TRUE = Completed!
         // (regardless of what it might have been before ...)
         mySetVar = {
-            // text: body.text
+            /*
+             O.K. No, don't "emulate" instructor code (sort of).
+             That line, for me, wipes out the text property.
+             Why ? By the time my code gets here, body.text is ''
+             And that ('') is what gets $set onto my record. Not good.
+             Instructor code doesn't do it like that.
+             Instructor code way up at top of function either _.pick 'text' if it is there to be _.pick'ed. If it isn't there, there is NO "text:" property AT ALL on the $set, so an empty text does NOT wipe out the actual. Hah.
+             */
+            // text: body.text, // << Nope. TRYING TO EMULATE INSTRUCTOR CODE WHY NOT
+            // text: body.text // Leave this commented out, as I had it.<< ORIG (ME)
             completed: body.completed,
             // We put a new date/time on its being marked completed:
             // Q. Can I put JavaScript logic right here like this? Think so...
@@ -351,7 +374,17 @@ if (_.isBoolean(body.completed) && body.completed && false) {
         // console.log("WR__ 654 body.completedAt: ", body.completedAt); // undefined
         try {
             mySetVar = {
-                // text: body.text
+                /*
+                 O.K. JUST LIKE ABOVE for body.completed === true : No, don't "emulate" instructor code here, either.
+                 That line, for me, wipes out the text property.
+                 Why ? By the time my code gets here, body.text is ''
+                 And that ('') is what gets $set onto my record. Not good.
+                 Instructor code doesn't do it like that.
+                 Instructor code way up at top of function either _.pick 'text' if it is there to be _.pick'ed. If it isn't there, there is NO "text:" property AT ALL on the $set, so an empty text does NOT wipe out the actual. Hah.
+                 */
+                // text: body.text, // << Nope. TRYING TO EMULATE INSTRUCTOR CODE WHY NOT
+                // text: body.text // Leave this commented out, as I had it.<< ORIG (ME)
+
                 completed: body.completed,
                 // completedAt: null // null takes whole property entirely out of MongoDB record
                 // HMM ABOVE IS NOT SO: "completedAt" : null, << Hmm, maybe this is Good Enough.
@@ -527,7 +560,7 @@ if ( useCase01Flag || useCase02AFlag || useCase03AFlag || useCase99WARNINGFlag )
 });
 
 
-} // /0001 if (useCase01Flag || useCase02AFlag || useCase03AFlag)
+} // /0001 if (useCase01Flag || useCase02AFlag || useCase03AFlag || useCase99WARNINGFlag)
 /* *********************************************
 * *********************************************
 */

@@ -72,7 +72,7 @@ if (env === 'development' || env === 'test' ) {
 }
 
 /* HEROKU NOTES:
-heroku config
+heroku config  <<<<< Will return you info including MONGODB_URI which has user and password
 heroku config:set
 heroku config:get
 heroku config:unset
